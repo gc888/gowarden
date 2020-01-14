@@ -1,0 +1,44 @@
+* Bitwarden API Overview
+-----
+
+[[https://github.com/jcs/rubywarden/blob/master/API.md][原文]]
+
+尽管开源了，但是 [[https://github.com/bitwarden/core][.NET Bitwarden API code ]]依然很难从较高的层次游览与理解，也没有 API endpoints 文档描述加密解密是如何实现的。
+
+以下的笔记是通过运行 [[https://github.com/jcs/rubywarden/blob/master/tools/mitm.rb][mitm]] 并用 ~http://127.0.0.1:4567/~ 为URL来跟踪与分析 Firefox 插件与 Bitwarden 服务端的通信得到的。
+
+关于密匙与加密/解密的详细信息是通过阅读 [[https://github.com/bitwarden/browser][web插件]] 得到的。
+
+** 密码的hash与加密密匙的推导
+
+概括：
+
+  - [[https://en.wikipedia.org/wiki/PBKDF2][PBKDF2]] 与 ~$KdfIterations~ 使用用户的 master key 与加了盐的 email 地址来生成 master key(服务器端未知)。
+  - 使用64个随机的字节作为对称密匙，前一半用来做加密密匙，后一半作为 MAC 密匙。
+  - 使用 AES-256-CBC 将 master key 与16字节的IV加密对称密匙，输出+IV变成“受保护的对称密匙”添加到用户的账户中，存储在服务器
+    端并在同步时发送到 Bitwarden 的客户端应用。
+  - 存储的每个字符串的私有值都会被对称密匙进行加密(成为 "Cipher" obejects)，只能通过用户的受保护的对称密匙与 master key才
+    能解密。
+
+改变用户的密码或 email 会创建一个新的 master key，然后用已经存在的对称密匙重新加密，再创建一个新的受保护密匙，这样就可以解密
+所有已经存在的 Cipher object 字符串。
+
+*例子*
+
+假设用户输入的 ~$masterPassword~ 是 ~p4ssw0rd~, ~$email~ 是 ~nobody@example.com~
+
+PBKDF2 is used with a password of $masterPassword, salt of lowercased $email, and $iterations KDF iterations to stretch password into $masterKey.
+
+#+BEGIN_SRC ruby
+def makeKey(password, salt, iterations)
+  PBKDF2.new(:password => password, :salt => salt,
+    :iterations => iterations, :hash_function => OpenSSL::Digest::SHA256,
+    :key_length => (256 / 8)).bin_string
+end
+
+irb> $masterKey = makeKey("p4ssw0rd", "nobody@example.com".downcase, 5000)
+=> "\x13\x88j`\x99m\xE3FA\x94\xEE'\xF0\xB2\x1A!\xB6>\\)\xF4\xD5\xCA#\xE5\e\xA6f5o{\xAA"
+#+END_SRC
+
+
+
