@@ -1,9 +1,8 @@
 * Bitwarden API Overview
------
 
 [[https://github.com/jcs/rubywarden/blob/master/API.md][原文]]
 
-尽管开源了，但是 [[https://github.com/bitwarden/core][.NET Bitwarden API code ]]依然很难从较高的层次游览与理解，也没有 API endpoints 文档描述加密解密是如何实现的。
+尽管开源了，但是 [[https://github.com/bitwarden/core][.NET Bitwarden API code ]]依然很难从较高的层次游览与理解，也没有相应的 API endpoints 文档来描述加密解密是如何实现的。
 
 以下的笔记是通过运行 [[https://github.com/jcs/rubywarden/blob/master/tools/mitm.rb][mitm]] 并用 ~http://127.0.0.1:4567/~ 为URL来跟踪与分析 Firefox 插件与 Bitwarden 服务端的通信得到的。
 
@@ -15,7 +14,7 @@
 
   - [[https://en.wikipedia.org/wiki/PBKDF2][PBKDF2]] 与 ~$KdfIterations~ 使用用户的 master key 与加了盐的 email 地址来生成 master key(服务器端未知)。
   - 使用64个随机的字节作为对称密匙，前一半用来做加密密匙，后一半作为 MAC 密匙。
-  - 使用 AES-256-CBC 将 master key 与16字节的IV加密对称密匙，输出+IV变成“受保护的对称密匙”添加到用户的账户中，存储在服务器
+  - 使用 AES-256-CBC 将 master key 与16字节的IV加密对称密匙，“输出+IV”变成“受保护的对称密匙”添加到用户的账户中，存储在服务器
     端并在同步时发送到 Bitwarden 的客户端应用。
   - 存储的每个字符串的私有值都会被对称密匙进行加密(成为 "Cipher" obejects)，只能通过用户的受保护的对称密匙与 master key才
     能解密。
