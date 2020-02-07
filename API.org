@@ -229,7 +229,7 @@ irb> $key = makeEncKey($internalKey)
 
 内存中的 ~$masterPassword~ 应被安全的移除, 因为直到下一次登录之前都不需要使用它了.
 
-向 ~$baseURL/accounts/register~ 提交一个 ~POST~ 请求, 请求体十一个包含 e-mail 地址, 
+向 ~$baseURL/accounts/register~ 提交一个 ~POST~ 请求, 请求体是一个包含 e-mail 地址, 
 ~$masterPasswordHash~, KDF的迭代次数 ~$kdfIterations~, 和一个 ~$key~ (不是 
 ~$internalKey~ !!!):
 
