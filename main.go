@@ -24,6 +24,10 @@ type register struct {
 	KdfIterations      int    `json:"kdfiterations"`
 }
 
+func (reg register) toString() {
+	fmt.Printf("Name : %v\nEmail : %v\nMasterPasswordHash : %v\nMasterPasswordHint : %v\nKey : %v\nKdf : %v\nKdfIterations : %v", reg.Name, reg.Email, reg.MasterPasswordHash, reg.MasterPasswordHint, reg.Key, reg.Kdf, reg.KdfIterations)
+}
+
 func handleRegister(w http.ResponseWriter, r *http.Request) {
 	var reg register
 	len := r.ContentLength
@@ -38,7 +42,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("error when unmarshal request body:", err)
 		return
 	}
-	fmt.Println(reg)
+	reg.toString()
 }
 
 func main() {
