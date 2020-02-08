@@ -44,7 +44,7 @@ irb> $masterKey = makeKey("p4ssw0rd", "nobody@example.com".downcase, 5000)
 => "\x13\x88j`\x99m\xE3FA\x94\xEE'\xF0\xB2\x1A!\xB6>\\)\xF4\xD5\xCA#\xE5\e\xA6f5o{\xAA"
 #+END_SRC
 
-这样就创建了一个随机的, 64位的对称密匙 ~$symmetricKey~. 前32位作为 ~$encKey~, 后32位作为 
+这样就创建了一个随机的, 64字节的对称密匙 ~$symmetricKey~. 前32字节作为 ~$encKey~, 后32字节作为 
 ~$macKey~. 同时也创建了一个随机的16字节 IV ~$iv~, 而 ~$masterKey~ 则被用来作为加密 
 ~$symmetricKey~ 的密匙.
 

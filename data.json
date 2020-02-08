@@ -1,0 +1,9 @@
+{
+	"name": null,
+	"email": "nobody@example.com",
+	"masterPasswordHash": "r5CFRR+n9NQI8a525FY+0BPR0HGOjVJX0cR1KEMnIOo=",
+	"masterPasswordHint": null,
+	"key": "0.uRcMe+Mc2nmOet4yWx9BwA==|PGQhpYUlTUq/vBEDj1KOHVMlTIH1eecMl0j80+Zu0VRVfFa7X/MWKdVM6OM/NfSZicFEwaLWqpyBlOrBXhR+trkX/dPRnfwJD2B93hnLNGQ=",
+	"kdf": 0,
+	"kdfIterations": 5000
+}
