@@ -103,7 +103,7 @@ irb> $masterPasswordHash = hashedPassword("p4ssw0rd", "nobody@example.com", 5000
 
 ** "Cipher" 的加密与解密
 
-Bitwarden将个别项都视为 "cipher" 类型(例如网站登录、安全笔记、信用卡等等), 这个 [[https://github.com/bitwarden/browser/blob/f1262147a33f302b5e569f13f56739f05bbec362/src/services/constantsService.js#L22-L27][type]] 的值
+Bitwarden将个别项视为 "cipher" 类型(例如网站登录、安全笔记、信用卡等等), 这个 [[https://github.com/bitwarden/browser/blob/f1262147a33f302b5e569f13f56739f05bbec362/src/services/constantsService.js#L22-L27][type]] 的值
 要表明它是什么. 每个 cipher 都有许多键/值对, 其中某些值是被加密的:
 
 #+BEGIN_SRC  json
