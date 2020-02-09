@@ -129,7 +129,8 @@ Bitwarden将个别项视为 "cipher" 类型(例如网站登录、安全笔记、
 #+END_SRC
 
 其中 ~name~, ~notes~, ~login.uris[0].uri~, ~login.username~ 和 ~login.password~ 的值都是
-被作为 "CipherString" 加密后的, 前面的 ~2~ 代表它的类型(~AesCbc256_HmacSha255_B64~).
+被作为 "CipherString" 
+加密后的, 前面的 ~2~ 代表它的类型(~AesCbc256_HmacSha255_B64~).
 
 想要解密其值, 需先将 CipherString 分解为 IV, cipher text 和 MAC, 再将各个部分进行
 Base64解码. 使用 ~$macKey~ 可以计算出MAC, 并将其与当前的MAC对比, 如果相等, 则使用 
@@ -251,15 +252,15 @@ Content-type: application/json
 响应应为 ~200~ 和一个空的相应体.
 *** 登录
 
-首先拿到 e-mail 地址与主密码, 然后向 ~$baseURL/accounts/prelogin~ 发送一个 ~POST~ 
+首先拿到 e-mail 地址与主密码, 然后向 ~$baseURL/api/accounts/prelogin~ 发送一个 ~POST~ 
 请求获得给定 e-mail 地址的KDF迭代次数:
 
 #+BEGIN_SRC json
-POST $baseURL/accounts/prelogin
+POST $baseURL/api/accounts/prelogin
 Content-type: application/json
 
 {
-	"email": "nobody@example.com",
+	"email": "nobody@example.com"
 }
 #+END_SRC
 
@@ -268,7 +269,7 @@ Content-type: application/json
 #+BEGIN_SRC json
 {
 	"Kdf": 0,
-	"KdfIterations": 5000,
+	"KdfIterations": 5000
 }
 #+END_SRC
 
@@ -289,7 +290,7 @@ irb> $masterPasswordHash = hashedPassword("p4ssw0rd", "nobody@example.com", 5000
 ~deviceIdentifier~ 是设备在登陆时生成的随机的 UUID. [[https://github.com/bitwarden/core/blob/c9a2e67d0965fd046a0b3099e9511c26f0201acd/src/Core/Enums/DeviceType.cs][Firefox]] 的 ~deviceType~ 是 ~2~.
 
 #+BEGIN_SRC json
-POST $identityURL/connect/token
+POST $identityURL/identity/connect/token
 Content-type: application/x-www-form-urlencoded
 
 {
@@ -298,7 +299,7 @@ Content-type: application/x-www-form-urlencoded
 	"password": "r5CFRR+n9NQI8a525FY+0BPR0HGOjVJX0cR1KEMnIOo=",
 	"scope": "api offline_access",
 	"client_id": "browser",
-	"deviceType": 3
+	"deviceType": 3,
 	"deviceIdentifier": "aac2e34a-44db-42ab-a733-5322dd582c3d",
 	"deviceName": "firefox",
 	"devicePushToken": ""
@@ -313,7 +314,7 @@ Content-type: application/x-www-form-urlencoded
 	"expires_in": 3600,
 	"token_type": "Bearer",
 	"refresh_token": "28fb1911ef6db24025ce1bae5aa940e117eb09dfe609b425b69bff73d73c03bf",
-	"Key": "0.uRcMe+Mc2nmOet4yWx9BwA==|PGQhpYUlTUq/vBEDj1KOHVMlTIH1eecMl0j80+Zu0VRVfFa7X/MWKdVM6OM/NfSZicFEwaLWqpyBlOrBXhR+trkX/dPRnfwJD2B93hnLNGQ=",
+	"Key": "0.uRcMe+Mc2nmOet4yWx9BwA==|PGQhpYUlTUq/vBEDj1KOHVMlTIH1eecMl0j80+Zu0VRVfFa7X/MWKdVM6OM/NfSZicFEwaLWqpyBlOrBXhR+trkX/dPRnfwJD2B93hnLNGQ="
 }
 #+END_SRC
 

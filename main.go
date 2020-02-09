@@ -45,10 +45,40 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	reg.toString()
 }
 
+type preloginJSON struct {
+	Kdf           int `json:"kdf"`
+	KdfIterations int `json:"kdfiterations"`
+}
+
+func handlePrelogin(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	var reg register
+	err := decoder.Decode(&reg)
+	if err != nil {
+		fmt.Println("Error when decode email", err)
+		return
+	}
+	reg.toString()
+
+	output, err := json.MarshalIndent(&preloginJSON{Kdf: 0, KdfIterations: 10000}, "", "\t")
+	if err != nil {
+		fmt.Println("Error marshalling to JSON", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(output)
+}
+
+func handleLogin(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.ParseForm())
+}
+
 func main() {
 	server := http.Server{
 		Addr: "127.0.0.1:4567",
 	}
 	http.HandleFunc("/api/accounts/register", handleRegister)
+	http.HandleFunc("/api/accounts/prelogin", handlePrelogin)
+	http.HandleFunc("/identity/connect/token", handleLogin)
 	server.ListenAndServe()
 }
