@@ -29,22 +29,24 @@ const accountTable = `
 CREATE TABLE IF NOT EXISTS "accounts" (
 id INTEGER,
 name TEXT,
-email TEXT,
+email TEXT UNIQUE,
 masterPasswordHash TEXT,
 masterPasswordHint TEXT,
 key INTEGER,
 kdfIterations INTEGER,
+publicKey TEXT NOT NULL,
+encryptedPrivateKey TEXT NOT NULL,
 PRIMARY KEY(id)
 )
 `
 
 func (db *DB) AddAccount(acc ds.Account) error {
-	stmt, err := db.db.Prepare("INSERT INTO accounts(name, email, masterPasswordHash, masterPasswordHint, key, kdfIterations) VALUES(?, ?, ?, ?, ?, ?)")
+	stmt, err := db.db.Prepare("INSERT INTO accounts(name, email, masterPasswordHash, masterPasswordHint, key, kdfIterations, publicKey, encryptedPrivateKey) VALUES(?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
 
-	_, err = stmt.Exec(acc.Name, acc.Email, acc.MasterPasswordHash, acc.MasterPasswordHint, acc.Key, acc.KdfIterations)
+	_, err = stmt.Exec(acc.Name, acc.Email, acc.MasterPasswordHash, acc.MasterPasswordHint, acc.Key, acc.KdfIterations, acc.Keys.PublicKey, acc.Keys.EncryptedPrivateKey)
 	if err != nil {
 		return err
 	}
