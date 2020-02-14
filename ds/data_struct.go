@@ -1,6 +1,15 @@
 package ds
 
-import "fmt"
+type Login struct {
+	Grant_type       string `json:"grant_type"`
+	UserName         string `json:"userName"`
+	Password         string `json:"password"`
+	Scope            string `json:"scope"`
+	Client_id        string `json:"client_id"`
+	DeviceType       int    `json:"deviceType"`
+	DeviceIdentifier string `json:"deviceIdentifier"`
+	DeviceName       string `json:"deviceName"`
+}
 
 type Account struct {
 	Name               string `json:"name"`
@@ -10,16 +19,10 @@ type Account struct {
 	Key                string `json:"key"`
 	Kdf                int    `json:"kdf"`
 	KdfIterations      int    `json:"kdfiterations"`
-	Keys               keys   `json:"keys"`
+	Keys               Keys   `json:"keys"`
 }
 
-type keys struct {
+type Keys struct {
 	PublicKey           string `json:"publicKey"`
 	EncryptedPrivateKey string `json:"encryptedPrivateKey"`
-}
-
-// Just for test, ready to delete.
-func (acc *Account) ToString() {
-	// TODO
-	fmt.Printf("Name : %v\nEmail : %v\nMasterPasswordHash : %v\nMasterPasswordHint : %v\nKey : %v\nKdf : %v\nKdfIterations : %v\npublicKey:%v\nencryptedPrivateKey:%s\n", acc.Name, acc.Email, acc.MasterPasswordHash, acc.MasterPasswordHint, acc.Key, acc.Kdf, acc.KdfIterations, acc.Keys.PublicKey, acc.Keys.EncryptedPrivateKey)
 }

@@ -11,10 +11,67 @@ import (
 
 	"log"
 
-	"github.com/404cn/gowarden/database"
 	"github.com/404cn/gowarden/ds"
+	"github.com/404cn/gowarden/sqlite"
 	"golang.org/x/crypto/pbkdf2"
 )
+
+func HandleLogin(w http.ResponseWriter, r *http.Request) {
+	var login ds.Login
+
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+	err := decoder.Decode(&login)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+}
+
+func HandlePrelogin(w http.ResponseWriter, r *http.Request) {
+	var acc ds.Account
+
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+	err := decoder.Decode(&acc)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+
+	acc, err = sqlite.StdDB.GetAccount(acc.Email)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(500)))
+		return
+	}
+
+	data := struct {
+		// Must upper case so that can write into response.
+		Kdf           int
+		KdfIterations int
+	}{
+		Kdf:           acc.Kdf,
+		KdfIterations: acc.KdfIterations,
+	}
+
+	d, err := json.Marshal(&data)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(500)))
+		return
+	}
+
+	log.Println(d)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(d)
+}
 
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var acc ds.Account
@@ -34,11 +91,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(acc.Email + "is trying to register.")
-
-	// Just for test.
-	// TODO delete
-	acc.ToString()
+	log.Println(acc.Email + " is trying to register.")
 
 	acc.MasterPasswordHash, err = makeKey(acc.MasterPasswordHash, acc.Email, acc.KdfIterations)
 	if err != nil {
@@ -48,7 +101,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = database.StdDB.AddAccount(acc)
+	err = sqlite.StdDB.AddAccount(acc)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

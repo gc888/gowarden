@@ -1,4 +1,4 @@
-package database
+package sqlite
 
 import (
 	"database/sql"
@@ -39,6 +39,19 @@ encryptedPrivateKey TEXT NOT NULL,
 PRIMARY KEY(id)
 )
 `
+
+func (db *DB) GetAccount(email string) (ds.Account, error) {
+	var acc ds.Account
+	acc.Keys = ds.Keys{}
+
+	var id int
+	err := db.db.QueryRow("SELECT * FROM accounts WHERE email=?", email).Scan(&id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey)
+	if err != nil {
+		return acc, err
+	}
+
+	return acc, nil
+}
 
 func (db *DB) AddAccount(acc ds.Account) error {
 	stmt, err := db.db.Prepare("INSERT INTO accounts(name, email, masterPasswordHash, masterPasswordHint, key, kdfIterations, publicKey, encryptedPrivateKey) VALUES(?, ?, ?, ?, ?, ?, ?, ?)")

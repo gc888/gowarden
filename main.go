@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/404cn/gowarden/api"
-	"github.com/404cn/gowarden/database"
+	"github.com/404cn/gowarden/sqlite"
 )
 
 var gowarden struct {
@@ -17,7 +17,7 @@ var gowarden struct {
 }
 
 func init() {
-	flag.BoolVar(&gowarden.initDB, "initDB", false, "Initalizes the databases.")
+	flag.BoolVar(&gowarden.initDB, "initDB", false, "Initalizes the database.")
 	flag.StringVar(&gowarden.dir, "d", "", "Set the directory.")
 	flag.StringVar(&gowarden.port, "p", "9527", "Set the Port.")
 	flag.BoolVar(&gowarden.disableRegistration, "disableRegistration", false, "Disable registration.")
@@ -26,18 +26,14 @@ func init() {
 func main() {
 	flag.Parse()
 
-	database.StdDB.SetDir(gowarden.dir)
+	sqlite.StdDB.SetDir(gowarden.dir)
 
-	database.StdDB.Open()
-	defer database.StdDB.Close()
-
-	// just for test
-	// TODO delete
-	gowarden.initDB = true
+	sqlite.StdDB.Open()
+	defer sqlite.StdDB.Close()
 
 	if gowarden.initDB {
-		log.Println("Try to initalize database ...")
-		err := database.StdDB.Init()
+		log.Println("Try to initalize sqlite ...")
+		err := sqlite.StdDB.Init()
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -52,6 +48,9 @@ func main() {
 	if !gowarden.disableRegistration {
 		http.HandleFunc("/api/accounts/register", api.HandleRegister)
 	}
+
+	http.HandleFunc("/api/accounts/prelogin", api.HandlePrelogin)
+	http.HandleFunc("/identity/connect/token", api.HandleLogin)
 
 	server.ListenAndServe()
 }
