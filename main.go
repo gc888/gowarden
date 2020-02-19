@@ -26,9 +26,17 @@ func init() {
 func main() {
 	flag.Parse()
 
+	// just for test
+	// TODO delete
+	gowarden.initDB = true
+
 	sqlite.StdDB.SetDir(gowarden.dir)
 
-	sqlite.StdDB.Open()
+	err := sqlite.StdDB.Open()
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	defer sqlite.StdDB.Close()
 
 	if gowarden.initDB {
@@ -46,11 +54,11 @@ func main() {
 	}
 
 	if !gowarden.disableRegistration {
-		http.HandleFunc("/api/accounts/register", api.HandleRegister)
+		http.HandleFunc("/api/accounts/register", api.StdApiHandler.HandleRegister)
 	}
 
-	http.HandleFunc("/api/accounts/prelogin", api.HandlePrelogin)
-	http.HandleFunc("/identity/connect/token", api.HandleLogin)
+	http.HandleFunc("/api/accounts/prelogin", api.StdApiHandler.HandlePrelogin)
+	http.HandleFunc("/identity/connect/token", api.StdApiHandler.HandleLogin)
 
 	server.ListenAndServe()
 }

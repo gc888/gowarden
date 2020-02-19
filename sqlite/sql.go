@@ -14,17 +14,6 @@ import (
 
 const dbFileName = "gowarden-db"
 
-type DB struct {
-	db  *sql.DB
-	dir string
-}
-
-func NewDatabase() *DB {
-	return &DB{}
-}
-
-var StdDB = NewDatabase()
-
 const accountTable = `
 CREATE TABLE IF NOT EXISTS "accounts" (
 id INTEGER,
@@ -39,6 +28,17 @@ encryptedPrivateKey TEXT NOT NULL,
 PRIMARY KEY(id)
 )
 `
+
+type DB struct {
+	db  *sql.DB
+	dir string
+}
+
+func New() *DB {
+	return &DB{}
+}
+
+var StdDB = New()
 
 func (db *DB) GetAccount(email string) (ds.Account, error) {
 	var acc ds.Account

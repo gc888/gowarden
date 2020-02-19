@@ -16,21 +16,28 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-func HandleLogin(w http.ResponseWriter, r *http.Request) {
-	var login ds.Login
+type handler interface {
+	AddAccount(ds.Account) error
+	GetAccount(string) (ds.Account, error)
+}
 
-	decoder := json.NewDecoder(r.Body)
-	defer r.Body.Close()
-	err := decoder.Decode(&login)
+type ApiHandler struct {
+	db handler
+}
 
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
-		return
+func New(db handler) *ApiHandler {
+	return &ApiHandler{
+		db: db,
 	}
 }
 
-func HandlePrelogin(w http.ResponseWriter, r *http.Request) {
+var StdApiHandler = New(sqlite.StdDB)
+
+func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (apiHandler *ApiHandler) HandlePrelogin(w http.ResponseWriter, r *http.Request) {
 	var acc ds.Account
 
 	decoder := json.NewDecoder(r.Body)
@@ -42,7 +49,7 @@ func HandlePrelogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acc, err = sqlite.StdDB.GetAccount(acc.Email)
+	acc, err = apiHandler.db.GetAccount(acc.Email)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -73,19 +80,20 @@ func HandlePrelogin(w http.ResponseWriter, r *http.Request) {
 	w.Write(d)
 }
 
-func HandleRegister(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *ApiHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var acc ds.Account
-
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	err := decoder.Decode(&acc)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
 	}
 
 	if acc.KdfIterations < 5000 || acc.KdfIterations > 100000 {
+		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
@@ -101,7 +109,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = sqlite.StdDB.AddAccount(acc)
+	err = apiHandler.db.AddAccount(acc)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
