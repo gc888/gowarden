@@ -11,8 +11,11 @@ import (
 
 	"log"
 
+	"errors"
+
 	"github.com/404cn/gowarden/ds"
 	"github.com/404cn/gowarden/sqlite"
+	jwt "github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -34,7 +37,28 @@ func New(db handler) *ApiHandler {
 var StdApiHandler = New(sqlite.StdDB)
 
 func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	var acc ds.Account
+	var err error
+	r.ParseForm()
 
+	email := r.PostForm["username"][0]
+	password := r.PostForm["password"][0]
+
+	log.Println(email + " is trying to login.")
+	acc, err = checkPassword(email, password, apihandler.db)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(401)))
+		return
+	}
+
+	// TODO refresh token
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.Claims{})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 }
 
 func (apiHandler *ApiHandler) HandlePrelogin(w http.ResponseWriter, r *http.Request) {
@@ -73,8 +97,6 @@ func (apiHandler *ApiHandler) HandlePrelogin(w http.ResponseWriter, r *http.Requ
 		w.Write([]byte(http.StatusText(500)))
 		return
 	}
-
-	log.Println(d)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(d)
@@ -130,4 +152,18 @@ func makeKey(password, salt string, iterations int) (string, error) {
 	masterKey := pbkdf2.Key(p, []byte(salt), iterations, 256/8, sha256.New)
 
 	return base64.StdEncoding.EncodeToString(masterKey), nil
+}
+
+func checkPassword(email, password string, db handler) (ds.Account, error) {
+	acc, err := db.GetAccount(email)
+	if err != nil {
+		return ds.Account{}, err
+	}
+
+	passwordHash, _ := makeKey(password, acc.Email, acc.KdfIterations)
+	if passwordHash != acc.MasterPasswordHash {
+		return ds.Account{}, errors.New("Password wrong.")
+	}
+
+	return acc, nil
 }

@@ -1,8 +1,6 @@
 package mock
 
 import (
-	"log"
-
 	"github.com/404cn/gowarden/ds"
 )
 
@@ -13,10 +11,12 @@ func New() *Mock {
 }
 
 func (mock *Mock) AddAccount(acc ds.Account) error {
-	log.Println("mock add account")
 	return nil
 }
 
 func (mock *Mock) GetAccount(s string) (ds.Account, error) {
-	return ds.Account{}, nil
+	return ds.Account{
+		Kdf:           0,
+		KdfIterations: 100000,
+	}, nil
 }

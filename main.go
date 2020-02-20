@@ -26,10 +26,6 @@ func init() {
 func main() {
 	flag.Parse()
 
-	// just for test
-	// TODO delete
-	gowarden.initDB = true
-
 	sqlite.StdDB.SetDir(gowarden.dir)
 
 	err := sqlite.StdDB.Open()
