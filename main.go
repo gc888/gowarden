@@ -17,6 +17,7 @@ var gowarden struct {
 }
 
 func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	flag.BoolVar(&gowarden.initDB, "initDB", false, "Initalizes the database.")
 	flag.StringVar(&gowarden.dir, "d", "", "Set the directory.")
 	flag.StringVar(&gowarden.port, "p", "9527", "Set the Port.")
@@ -25,6 +26,10 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	// TODO use for test
+
+	// gowarden.initDB = true
 
 	sqlite.StdDB.SetDir(gowarden.dir)
 

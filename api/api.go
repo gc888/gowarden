@@ -13,15 +13,25 @@ import (
 
 	"errors"
 
+	"time"
+
+	"crypto/rand"
+
 	"github.com/404cn/gowarden/ds"
 	"github.com/404cn/gowarden/sqlite"
 	jwt "github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/pbkdf2"
 )
 
+const (
+	jwtExpiresin  = 3600
+	jwtSigningKey = "secret"
+)
+
 type handler interface {
 	AddAccount(ds.Account) error
 	GetAccount(string) (ds.Account, error)
+	UpdateAccount(ds.Account) error
 }
 
 type ApiHandler struct {
@@ -53,12 +63,58 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// TODO refresh token
+	if "" == acc.RefreshToken {
+		acc.RefreshToken = createRefreshToken()
+		err = apihandler.db.UpdateAccount(acc)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(http.StatusText(401)))
+			return
+		}
+	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.Claims{})
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"nbf":     time.Now().Unix(),
+		"exp":     time.Now().Add(time.Second * time.Duration(jwtExpiresin)).Unix(),
+		"iss":     "gowarden",
+		"sub":     "gowarden",
+		"email":   acc.Email,
+		"name":    acc.Name,
+		"premium": true,
+	})
+	accessToken, err := token.SignedString([]byte(jwtSigningKey))
+	if nil != err {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+
+	rtoken := struct {
+		AccessToken  string `json:"access_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		TokenType    string `json"token_type"`
+		RefreshToken string `json:"refresh_token"`
+		Key          string `json:"Key"`
+	}{
+		AccessToken:  accessToken,
+		ExpiresIn:    jwtExpiresin,
+		TokenType:    "Bearer",
+		RefreshToken: acc.RefreshToken,
+		Key:          acc.Key,
+	}
+
+	d, err := json.Marshal(&rtoken)
+	if nil != err {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	w.Write(d)
 }
 
 func (apiHandler *ApiHandler) HandlePrelogin(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +212,7 @@ func makeKey(password, salt string, iterations int) (string, error) {
 
 func checkPassword(email, password string, db handler) (ds.Account, error) {
 	acc, err := db.GetAccount(email)
-	if err != nil {
+	if nil != err {
 		return ds.Account{}, err
 	}
 
@@ -166,4 +222,14 @@ func checkPassword(email, password string, db handler) (ds.Account, error) {
 	}
 
 	return acc, nil
+}
+
+// Generate 32 bit rand string.
+func createRefreshToken() string {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if nil != err {
+		log.Fatal(err)
+	}
+	return base64.StdEncoding.EncodeToString(b)
 }

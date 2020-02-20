@@ -20,3 +20,7 @@ func (mock *Mock) GetAccount(s string) (ds.Account, error) {
 		KdfIterations: 100000,
 	}, nil
 }
+
+func (mock *Mock) UpdateAccount(acc ds.Account) error {
+	return nil
+}

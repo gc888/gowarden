@@ -9,6 +9,7 @@ type Account struct {
 	Kdf                int    `json:"kdf"`
 	KdfIterations      int    `json:"kdfiterations"`
 	Keys               Keys   `json:"keys"`
+	RefreshToken       string `json:"refresh_token"`
 }
 
 type Keys struct {

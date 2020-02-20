@@ -12,22 +12,22 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const dbFileName = "gowarden-db"
-
-const accountTable = `
-CREATE TABLE IF NOT EXISTS "accounts" (
-id INTEGER,
-name TEXT,
-email TEXT UNIQUE,
-masterPasswordHash TEXT,
-masterPasswordHint TEXT,
-key INTEGER,
-kdfIterations INTEGER,
-publicKey TEXT NOT NULL,
-encryptedPrivateKey TEXT NOT NULL,
-PRIMARY KEY(id)
+const (
+	dbFileName   = "gowarden-db" // Database file name.
+	accountTable = `CREATE TABLE IF NOT EXISTS "accounts" (
+                        id INTEGER,
+                        name TEXT,
+                        email TEXT UNIQUE,
+                        masterPasswordHash TEXT,
+                        masterPasswordHint TEXT,
+                        key INTEGER,
+                        kdfIterations INTEGER,
+                        publicKey TEXT NOT NULL,
+                        encryptedPrivateKey TEXT NOT NULL,
+                        refreshToken TEXT,
+                        PRIMARY KEY(id)
+                    )`  // User's account table
 )
-`
 
 type DB struct {
 	db  *sql.DB
@@ -40,12 +40,26 @@ func New() *DB {
 
 var StdDB = New()
 
+func (db *DB) UpdateAccount(acc ds.Account) error {
+	stmt, err := db.db.Prepare("UPDATE accounts set refreshToken=$1 WHERE email=$2")
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(acc.RefreshToken, acc.Email)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (db *DB) GetAccount(email string) (ds.Account, error) {
 	var acc ds.Account
 	acc.Keys = ds.Keys{}
 
 	var id int
-	err := db.db.QueryRow("SELECT * FROM accounts WHERE email=?", email).Scan(&id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey)
+	err := db.db.QueryRow("SELECT * FROM accounts WHERE email=?", email).Scan(&id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
 	if err != nil {
 		return acc, err
 	}
@@ -54,12 +68,12 @@ func (db *DB) GetAccount(email string) (ds.Account, error) {
 }
 
 func (db *DB) AddAccount(acc ds.Account) error {
-	stmt, err := db.db.Prepare("INSERT INTO accounts(name, email, masterPasswordHash, masterPasswordHint, key, kdfIterations, publicKey, encryptedPrivateKey) VALUES(?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := db.db.Prepare("INSERT INTO accounts(name, email, masterPasswordHash, masterPasswordHint, key, kdfIterations, publicKey, encryptedPrivateKey, refreshToken) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
 
-	_, err = stmt.Exec(acc.Name, acc.Email, acc.MasterPasswordHash, acc.MasterPasswordHint, acc.Key, acc.KdfIterations, acc.Keys.PublicKey, acc.Keys.EncryptedPrivateKey)
+	_, err = stmt.Exec(acc.Name, acc.Email, acc.MasterPasswordHash, acc.MasterPasswordHint, acc.Key, acc.KdfIterations, acc.Keys.PublicKey, acc.Keys.EncryptedPrivateKey, acc.RefreshToken)
 	if err != nil {
 		return err
 	}
