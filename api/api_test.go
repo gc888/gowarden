@@ -36,24 +36,26 @@ func tearDown() {
 
 }
 
-func TestHandleLogin(t *testing.T) {}
+func TestHandleLogin(t *testing.T) {
+
+}
 
 func TestHandlePrelogin(t *testing.T) {
-	post := strings.NewReader(`{"email": "nobody@example.com"}`)
+	got := strings.NewReader(`{"email": "nobody@example.com"}`)
 
-	request, _ := http.NewRequest("POST", "/api/accounts/prelogin", post)
+	request, _ := http.NewRequest("POST", "/api/accounts/prelogin", got)
 	mux.ServeHTTP(writer, request)
 
-	type response struct{ Kdf, KdfIterations int }
-	var res response
-	json.Unmarshal(writer.Body.Bytes(), &res)
-	if res.Kdf != 0 || res.KdfIterations != 100000 {
-		t.Errorf("kdf: %v, kdfIterations: %v", res.Kdf, res.KdfIterations)
+	var want struct{ Kdf, KdfIterations int }
+	json.Unmarshal(writer.Body.Bytes(), &want)
+
+	if want.Kdf != 0 || want.KdfIterations != 100000 {
+		t.Errorf("kdf: %v, kdfIterations: %v", want.Kdf, want.KdfIterations)
 	}
 }
 
 func TestHandleRegister(t *testing.T) {
-	post := strings.NewReader(`{
+	got := strings.NewReader(`{
 "name": "",
 "email": "nobody@example.com",
 "masterPasswordHash": "kuz4if+vSRXH+bCYLRyN6QonjvA5YglyUGW9/CI0Vqc=",
@@ -67,7 +69,7 @@ func TestHandleRegister(t *testing.T) {
 }
 }`)
 
-	request, _ := http.NewRequest("POST", "/api/accounts/register", post)
+	request, _ := http.NewRequest("POST", "/api/accounts/register", got)
 	mux.ServeHTTP(writer, request)
 
 	if writer.Code != 200 {

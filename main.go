@@ -54,12 +54,19 @@ func main() {
 		Addr: "127.0.0.1:9527",
 	}
 
+	handler := api.StdApiHandler
+
 	if !gowarden.disableRegistration {
-		http.HandleFunc("/api/accounts/register", api.StdApiHandler.HandleRegister)
+		http.HandleFunc("/api/accounts/register", handler.HandleRegister)
 	}
 
-	http.HandleFunc("/api/accounts/prelogin", api.StdApiHandler.HandlePrelogin)
-	http.HandleFunc("/identity/connect/token", api.StdApiHandler.HandleLogin)
+	http.HandleFunc("/api/accounts/prelogin", handler.HandlePrelogin)
+	http.HandleFunc("/identity/connect/token", handler.HandleLogin)
+
+	// Must login can access these api.
+	http.HandleFunc("/api/accounts/keys", handler.AuthMiddleware(handler.HandleAccountKeys))
+	http.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
+	http.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
 
 	server.ListenAndServe()
 }

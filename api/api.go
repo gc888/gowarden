@@ -46,6 +46,29 @@ func New(db handler) *ApiHandler {
 
 var StdApiHandler = New(sqlite.StdDB)
 
+func (apiHandler *ApiHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (apiHandler *ApiHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (apiHandler *ApiHandler) HandleAccountKeys(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Things before h.
+
+		h(w, r)
+
+		// Things after h.
+
+	}
+}
+
 func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var acc ds.Account
 	var err error
