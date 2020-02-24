@@ -17,6 +17,10 @@ import (
 
 	"crypto/rand"
 
+	"context"
+
+	"fmt"
+
 	"github.com/404cn/gowarden/ds"
 	"github.com/404cn/gowarden/sqlite"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -47,7 +51,11 @@ func New(db handler) *ApiHandler {
 var StdApiHandler = New(sqlite.StdDB)
 
 func (apiHandler *ApiHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
+	email := GetEmailRctx(r)
+}
 
+func GetEmailRctx(r *http.Request) string {
+	return r.Context().Value("email").(string)
 }
 
 func (apiHandler *ApiHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
@@ -60,12 +68,44 @@ func (apiHandler *ApiHandler) HandleAccountKeys(w http.ResponseWriter, r *http.R
 
 func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Things before h.
+		auth, ok := r.Header["Authorization"]
+		if len(auth) < 1 && !ok {
+			log.Println("No auth header.")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(http.StatusText(401)))
+			return
+		}
 
-		h(w, r)
+		tokenString := strings.TrimPrefix(auth[0], "Bearer ")
 
-		// Things after h.
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			// Type assertion.
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				log.Printf("Signing method not right: %v", token.Header["alg"])
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(jwtSigningKey), nil
+		})
 
+		if nil != err {
+			log.Println("JWT token parse error.")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(http.StatusText(401)))
+			return
+		}
+
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			email, ok := claims["email"].(string)
+			if ok {
+				// Add email to request's context so that can get account by email.
+				ctx := context.WithValue(r.Context(), "email", email)
+				h(w, r.WithContext(ctx))
+				return
+			}
+		}
+
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(401)))
 	}
 }
 
@@ -116,7 +156,7 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 	rtoken := struct {
 		AccessToken  string `json:"access_token"`
 		ExpiresIn    int    `json:"expires_in"`
-		TokenType    string `json"token_type"`
+		TokenType    string `json:"token_type"`
 		RefreshToken string `json:"refresh_token"`
 		Key          string `json:"Key"`
 	}{

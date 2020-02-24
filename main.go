@@ -52,6 +52,7 @@ func main() {
 
 	server := &http.Server{
 		Addr: "127.0.0.1:9527",
+		// Addr: "127.0.0.1:" + gowarden.port,
 	}
 
 	handler := api.StdApiHandler
@@ -68,5 +69,6 @@ func main() {
 	http.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
 	http.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
 
-	server.ListenAndServe()
+	log.Fatal(server.ListenAndServe())
+
 }
