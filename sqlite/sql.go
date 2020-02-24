@@ -41,12 +41,12 @@ func New() *DB {
 var StdDB = New()
 
 func (db *DB) UpdateAccount(acc ds.Account) error {
-	stmt, err := db.db.Prepare("UPDATE accounts set refreshToken=$1 WHERE email=$2")
+	stmt, err := db.db.Prepare("UPDATE accounts set refreshToken=$1 publicKey=$2 encryptedPrivateKey=$3 WHERE email=$2")
 	if err != nil {
 		return err
 	}
 
-	_, err = stmt.Exec(acc.RefreshToken, acc.Email)
+	_, err = stmt.Exec(acc.RefreshToken, acc.Keys.PublicKey, acc.Keys.EncryptedPrivateKey, acc.Email)
 	if err != nil {
 		return err
 	}

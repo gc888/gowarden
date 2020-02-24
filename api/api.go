@@ -51,11 +51,7 @@ func New(db handler) *ApiHandler {
 var StdApiHandler = New(sqlite.StdDB)
 
 func (apiHandler *ApiHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
-	email := GetEmailRctx(r)
-}
 
-func GetEmailRctx(r *http.Request) string {
-	return r.Context().Value("email").(string)
 }
 
 func (apiHandler *ApiHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +59,33 @@ func (apiHandler *ApiHandler) HandleSync(w http.ResponseWriter, r *http.Request)
 }
 
 func (apiHandler *ApiHandler) HandleAccountKeys(w http.ResponseWriter, r *http.Request) {
+	var keys ds.Keys
+	err := json.NewDecoder(r.Body).Decode(&keys)
+	defer r.Body.Close()
+	if nil != err {
+		log.Println("Decode request body failed")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
 
+	email := GetEmailRctx(r)
+
+	acc, err := apiHandler.db.GetAccount(email)
+	if nil != err {
+		log.Printf("Account not exits: %v\n", email)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+
+	acc.Keys = keys
+	apiHandler.db.UpdateAccount(acc)
+}
+
+// Return request context's email value.
+func GetEmailRctx(r *http.Request) string {
+	return r.Context().Value("email").(string)
 }
 
 func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFunc {
@@ -72,7 +94,7 @@ func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFun
 		if len(auth) < 1 && !ok {
 			log.Println("No auth header.")
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(http.StatusText(401)))
+			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
 		}
 
@@ -81,8 +103,8 @@ func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFun
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			// Type assertion.
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				log.Printf("Signing method not right: %v", token.Header["alg"])
-				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+				log.Printf("Signing method not right: %v\n", token.Header["alg"])
+				return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 			}
 			return []byte(jwtSigningKey), nil
 		})
@@ -90,7 +112,7 @@ func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFun
 		if nil != err {
 			log.Println("JWT token parse error.")
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(http.StatusText(401)))
+			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
 		}
 
@@ -105,7 +127,7 @@ func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFun
 		}
 
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(http.StatusText(401)))
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 	}
 }
 
@@ -122,7 +144,7 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(http.StatusText(401)))
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 		return
 	}
 
@@ -131,7 +153,7 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		err = apihandler.db.UpdateAccount(acc)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(http.StatusText(401)))
+			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
 		}
 	}
