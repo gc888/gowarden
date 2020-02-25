@@ -1,5 +1,11 @@
 package ds
 
+type Cipher struct {
+	Type         int     `json:"type"`
+	FolderId     *string `json:"folderId"`
+	Organization *string `json:"organization"`
+}
+
 type Account struct {
 	Name               string `json:"name"`
 	Email              string `json:"email"`

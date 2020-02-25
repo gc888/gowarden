@@ -27,10 +27,6 @@ func init() {
 func main() {
 	flag.Parse()
 
-	// TODO use for test
-
-	// gowarden.initDB = true
-
 	sqlite.StdDB.SetDir(gowarden.dir)
 
 	err := sqlite.StdDB.Open()
@@ -68,6 +64,8 @@ func main() {
 	http.HandleFunc("/api/accounts/keys", handler.AuthMiddleware(handler.HandleAccountKeys))
 	http.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
 	http.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
+
+	http.HandleFunc("/api/ciphers", handler.AuthMiddleware(handler.HandleCiphers))
 
 	log.Fatal(server.ListenAndServe())
 

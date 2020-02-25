@@ -8,6 +8,8 @@ import (
 
 	"path"
 
+	"regexp"
+
 	"github.com/404cn/gowarden/ds"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -54,14 +56,29 @@ func (db *DB) UpdateAccount(acc ds.Account) error {
 	return nil
 }
 
-func (db *DB) GetAccount(email string) (ds.Account, error) {
+func (db *DB) GetAccount(s string) (ds.Account, error) {
 	var acc ds.Account
 	acc.Keys = ds.Keys{}
 
 	var id int
-	err := db.db.QueryRow("SELECT * FROM accounts WHERE email=?", email).Scan(&id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
-	if err != nil {
-		return acc, err
+
+	var validEmail = regexp.MustCompile(`(\w[-._\w]*\w@\w[-._\w]*\w\.\w{2,3})`)
+
+	// TODO test
+	if validEmail.MatchString(s) {
+		// Get account from email.
+		err := db.db.QueryRow("SELECT * FROM accounts WHERE email=?", s).Scan(&id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
+
+		if err != nil {
+			return acc, err
+		}
+	} else {
+		// Get account from refresh token.
+		err := db.db.QueryRow("SELECT * FROM accounts WHERE refreshToken=?", s).Scan(&id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
+
+		if err != nil {
+			return acc, err
+		}
 	}
 
 	return acc, nil
