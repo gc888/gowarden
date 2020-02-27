@@ -10,14 +10,17 @@ import (
 
 	"regexp"
 
+	"time"
+
 	"github.com/404cn/gowarden/ds"
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
 	dbFileName   = "gowarden-db" // Database file name.
 	accountTable = `CREATE TABLE IF NOT EXISTS "accounts" (
-                        id INTEGER,
+                        id TEXT,
                         name TEXT,
                         email TEXT UNIQUE,
                         masterPasswordHash TEXT,
@@ -29,6 +32,13 @@ const (
                         refreshToken TEXT,
                         PRIMARY KEY(id)
                     )`  // User's account table
+	folderTable = `CREATE TABLE IF NOT EXISTS "folders" (
+                        id TEXT,
+                        name TEXT,
+                        revisionDate INTEGER,
+                        email TEXT,
+                        PRIMARY KEY(id)
+                    )`
 )
 
 type DB struct {
@@ -42,8 +52,31 @@ func New() *DB {
 
 var StdDB = New()
 
+func (db *DB) AddFolder(accountId, name string) (ds.Folder, error) {
+	stmt, err := db.db.Prepare("INSERT INFO folders (id, name, revisionDate, email) VALUES(?, ?, ?, ?)")
+	if err != nil {
+		return ds.Folder{}, err
+	}
+
+	folderId := uuid.Must(uuid.NewRandom())
+
+	folder := ds.Folder{
+		Id:           folderId.String(),
+		Name:         name,
+		RevisionDate: time.Now(),
+		Object:       "folder",
+	}
+
+	_, err = stmt.Exec(folderId, name, folder.RevisionDate.Unix(), accountId)
+	if err != nil {
+		return ds.Folder{}, nil
+	}
+
+	return folder, nil
+}
+
 func (db *DB) UpdateAccount(acc ds.Account) error {
-	stmt, err := db.db.Prepare("UPDATE accounts set refreshToken=$1 publicKey=$2 encryptedPrivateKey=$3 WHERE email=$2")
+	stmt, err := db.db.Prepare("UPDATE accounts SET refreshToken=$1 publicKey=$2 encryptedPrivateKey=$3 WHERE email=$4")
 	if err != nil {
 		return err
 	}
@@ -60,21 +93,19 @@ func (db *DB) GetAccount(s string) (ds.Account, error) {
 	var acc ds.Account
 	acc.Keys = ds.Keys{}
 
-	var id int
-
 	var validEmail = regexp.MustCompile(`(\w[-._\w]*\w@\w[-._\w]*\w\.\w{2,3})`)
 
 	// TODO test
 	if validEmail.MatchString(s) {
 		// Get account from email.
-		err := db.db.QueryRow("SELECT * FROM accounts WHERE email=?", s).Scan(&id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
+		err := db.db.QueryRow("SELECT * FROM accounts WHERE email=?", s).Scan(&acc.Id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
 
 		if err != nil {
 			return acc, err
 		}
 	} else {
 		// Get account from refresh token.
-		err := db.db.QueryRow("SELECT * FROM accounts WHERE refreshToken=?", s).Scan(&id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
+		err := db.db.QueryRow("SELECT * FROM accounts WHERE refreshToken=?", s).Scan(&acc.Id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
 
 		if err != nil {
 			return acc, err
@@ -85,12 +116,12 @@ func (db *DB) GetAccount(s string) (ds.Account, error) {
 }
 
 func (db *DB) AddAccount(acc ds.Account) error {
-	stmt, err := db.db.Prepare("INSERT INTO accounts(name, email, masterPasswordHash, masterPasswordHint, key, kdfIterations, publicKey, encryptedPrivateKey, refreshToken) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := db.db.Prepare("INSERT INTO accounts(id, name, email, masterPasswordHash, masterPasswordHint, key, kdfIterations, publicKey, encryptedPrivateKey, refreshToken) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
 
-	_, err = stmt.Exec(acc.Name, acc.Email, acc.MasterPasswordHash, acc.MasterPasswordHint, acc.Key, acc.KdfIterations, acc.Keys.PublicKey, acc.Keys.EncryptedPrivateKey, acc.RefreshToken)
+	_, err = stmt.Exec(uuid.Must(uuid.NewRandom()), acc.Name, acc.Email, acc.MasterPasswordHash, acc.MasterPasswordHint, acc.Key, acc.KdfIterations, acc.Keys.PublicKey, acc.Keys.EncryptedPrivateKey, acc.RefreshToken)
 	if err != nil {
 		return err
 	}
@@ -132,7 +163,7 @@ func (db *DB) Init() error {
 		}
 	}
 
-	for _, sql := range []string{accountTable} {
+	for _, sql := range []string{accountTable, folderTable} {
 		if _, err := db.db.Exec(sql); err != nil {
 			return errors.New(fmt.Sprintf("Sql error with %s\n%s", sql, err.Error()))
 		}

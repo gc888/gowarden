@@ -65,6 +65,7 @@ func main() {
 	http.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
 	http.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
 
+	http.HandleFunc("/api/folders", handler.AuthMiddleware(handler.HandlerFolders))
 	http.HandleFunc("/api/ciphers", handler.AuthMiddleware(handler.HandleCiphers))
 
 	log.Fatal(server.ListenAndServe())
