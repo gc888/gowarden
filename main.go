@@ -27,6 +27,8 @@ func init() {
 func main() {
 	flag.Parse()
 
+	gowarden.initDB = true
+
 	sqlite.StdDB.SetDir(gowarden.dir)
 
 	err := sqlite.StdDB.Open()

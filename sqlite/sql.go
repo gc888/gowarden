@@ -36,7 +36,7 @@ const (
                         id TEXT,
                         name TEXT,
                         revisionDate INTEGER,
-                        email TEXT,
+                        accountId TEXT,
                         PRIMARY KEY(id)
                     )`
 )
@@ -53,7 +53,7 @@ func New() *DB {
 var StdDB = New()
 
 func (db *DB) AddFolder(accountId, name string) (ds.Folder, error) {
-	stmt, err := db.db.Prepare("INSERT INFO folders (id, name, revisionDate, email) VALUES(?, ?, ?, ?)")
+	stmt, err := db.db.Prepare("INSERT INTO folders (id, name, revisionDate, accountId) VALUES(?, ?, ?, ?)")
 	if err != nil {
 		return ds.Folder{}, err
 	}
@@ -76,7 +76,7 @@ func (db *DB) AddFolder(accountId, name string) (ds.Folder, error) {
 }
 
 func (db *DB) UpdateAccount(acc ds.Account) error {
-	stmt, err := db.db.Prepare("UPDATE accounts SET refreshToken=$1 publicKey=$2 encryptedPrivateKey=$3 WHERE email=$4")
+	stmt, err := db.db.Prepare("UPDATE accounts SET refreshToken=$1, publicKey=$2, encryptedPrivateKey=$3 WHERE email=$4")
 	if err != nil {
 		return err
 	}
