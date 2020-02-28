@@ -24,6 +24,7 @@ import (
 	"github.com/404cn/gowarden/ds"
 	"github.com/404cn/gowarden/sqlite"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/mux"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -37,6 +38,8 @@ type handler interface {
 	GetAccount(string) (ds.Account, error)
 	UpdateAccount(ds.Account) error
 	AddFolder(string, string) (ds.Folder, error)
+	DeleteFolder(string) error
+	RenameFolder(string, string) (ds.Folder, error)
 }
 
 type ApiHandler struct {
@@ -60,8 +63,23 @@ func (apiHandler *ApiHandler) HandleSync(w http.ResponseWriter, r *http.Request)
 
 }
 
-// handle add folers
-func (apiHandler ApiHandler) HandlerFolders(w http.ResponseWriter, r *http.Request) {
+func (apiHandler ApiHandler) HandleFolderDelete(w http.ResponseWriter, r *http.Request) {
+	folderUUID := mux.Vars(r)["folderUUID"]
+	email := GetEmailRctx(r)
+
+	log.Printf("%v is trying to delete a folder", email)
+
+	err := apiHandler.db.DeleteFolder(folderUUID)
+	if err != nil {
+		log.Println(err)
+		log.Println("Failed to delete folder")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+}
+
+func (apiHandler ApiHandler) HandleFolderRename(w http.ResponseWriter, r *http.Request) {
 	var rfolder struct {
 		Name string `json:"name"`
 	}
@@ -70,8 +88,49 @@ func (apiHandler ApiHandler) HandlerFolders(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		log.Println(err)
 		log.Println("Decode failed")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+	defer r.Body.Close()
+
+	folderUUID := mux.Vars(r)["folderUUID"]
+	email := GetEmailRctx(r)
+
+	log.Printf("%v is trying to rename a folder", email)
+
+	folder, err := apiHandler.db.RenameFolder(rfolder.Name, folderUUID)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+
+	b, err := json.Marshal(&folder)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// handle add folers
+func (apiHandler ApiHandler) HandleFolder(w http.ResponseWriter, r *http.Request) {
+	var rfolder struct {
+		Name string `json:"name"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&rfolder)
+	if err != nil {
+		log.Println(err)
+		log.Println("Decode failed")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
 	}
 	defer r.Body.Close()

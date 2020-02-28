@@ -52,6 +52,43 @@ func New() *DB {
 
 var StdDB = New()
 
+func (db *DB) DeleteFolder(folderUUID string) error {
+	stmt, err := db.db.Prepare("DELETE FROM folders WHERE id=$1")
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(folderUUID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) RenameFolder(name, folderUUID string) (ds.Folder, error) {
+	stmt, err := db.db.Prepare("UPDATE folders SET name=$1, revisionDate=$2 WHERE id=$3")
+	if err != nil {
+		return ds.Folder{}, err
+	}
+
+	tnow := time.Now()
+
+	folder := ds.Folder{
+		Id:           folderUUID,
+		Name:         name,
+		RevisionDate: tnow.UTC(),
+		Object:       "folder",
+	}
+
+	_, err = stmt.Exec(name, tnow.Unix(), folderUUID)
+	if err != nil {
+		return ds.Folder{}, err
+	}
+
+	return folder, nil
+}
+
 func (db *DB) AddFolder(accountId, name string) (ds.Folder, error) {
 	stmt, err := db.db.Prepare("INSERT INTO folders (id, name, revisionDate, accountId) VALUES(?, ?, ?, ?)")
 	if err != nil {

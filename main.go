@@ -7,6 +7,7 @@ import (
 
 	"github.com/404cn/gowarden/api"
 	"github.com/404cn/gowarden/sqlite"
+	"github.com/gorilla/mux"
 )
 
 var gowarden struct {
@@ -27,8 +28,6 @@ func init() {
 func main() {
 	flag.Parse()
 
-	gowarden.initDB = true
-
 	sqlite.StdDB.SetDir(gowarden.dir)
 
 	err := sqlite.StdDB.Open()
@@ -48,28 +47,26 @@ func main() {
 		log.Println("Database initalized.")
 	}
 
-	server := &http.Server{
-		Addr: "127.0.0.1:9527",
-		// Addr: "127.0.0.1:" + gowarden.port,
-	}
-
+	r := mux.NewRouter()
 	handler := api.StdApiHandler
 
 	if !gowarden.disableRegistration {
-		http.HandleFunc("/api/accounts/register", handler.HandleRegister)
+		r.HandleFunc("/api/accounts/register", handler.HandleRegister)
 	}
 
-	http.HandleFunc("/api/accounts/prelogin", handler.HandlePrelogin)
-	http.HandleFunc("/identity/connect/token", handler.HandleLogin)
+	r.HandleFunc("/api/accounts/prelogin", handler.HandlePrelogin)
+	r.HandleFunc("/identity/connect/token", handler.HandleLogin)
 
 	// Must login can access these api.
-	http.HandleFunc("/api/accounts/keys", handler.AuthMiddleware(handler.HandleAccountKeys))
-	http.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
-	http.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
+	r.HandleFunc("/api/accounts/keys", handler.AuthMiddleware(handler.HandleAccountKeys))
+	// TODO
+	r.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
+	r.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
+	r.HandleFunc("/api/ciphers", handler.AuthMiddleware(handler.HandleCiphers))
 
-	http.HandleFunc("/api/folders", handler.AuthMiddleware(handler.HandlerFolders))
-	http.HandleFunc("/api/ciphers", handler.AuthMiddleware(handler.HandleCiphers))
+	r.HandleFunc("/api/folders", handler.AuthMiddleware(handler.HandleFolder)).Methods(http.MethodPost)
+	r.HandleFunc("/api/folders/{folderUUID}", handler.AuthMiddleware(handler.HandleFolderRename)).Methods(http.MethodPut)
+	r.HandleFunc("/api/folders/{folderUUID}", handler.AuthMiddleware(handler.HandleFolderDelete)).Methods(http.MethodDelete)
 
-	log.Fatal(server.ListenAndServe())
-
+	log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, r))
 }

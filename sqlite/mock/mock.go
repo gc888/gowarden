@@ -10,6 +10,10 @@ func New() *Mock {
 	return &Mock{}
 }
 
+func (mock *Mock) DeleteFolder(name, folderUUID string) (ds.Folder, error) {
+	return ds.Folder{}, nil
+}
+
 func (mock *Mock) AddFolder(accountId, name string) (ds.Folder, error) {
 	return ds.Folder{}, nil
 }
