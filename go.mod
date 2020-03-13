@@ -7,6 +7,7 @@ require (
 	github.com/cweill/gotests v1.5.3 // indirect
 	github.com/davidrjenni/reftools v0.0.0-20191222082827-65925cf01315 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+<<<<<<< HEAD
 	github.com/fatih/gomodifytags v1.3.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/go-delve/delve v1.4.0 // indirect
@@ -15,6 +16,10 @@ require (
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-runewidth v0.0.8 // indirect
+=======
+	github.com/google/uuid v1.1.1
+	github.com/gorilla/mux v1.7.4
+>>>>>>> ed04062e55657cc996eb1479a83a5678e4240c9d
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/peterh/liner v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect

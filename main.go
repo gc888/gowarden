@@ -7,6 +7,7 @@ import (
 
 	"github.com/404cn/gowarden/api"
 	"github.com/404cn/gowarden/sqlite"
+	"github.com/gorilla/mux"
 )
 
 var gowarden struct {
@@ -29,9 +30,12 @@ func init() {
 func main() {
 	flag.Parse()
 
+<<<<<<< HEAD
 	// TODO use for test
 	gowarden.initDB = true
 
+=======
+>>>>>>> ed04062e55657cc996eb1479a83a5678e4240c9d
 	sqlite.StdDB.SetDir(gowarden.dir)
 
 	err := sqlite.StdDB.Open()
@@ -51,16 +55,26 @@ func main() {
 		log.Println("Database initalized.")
 	}
 
-	server := &http.Server{
-		Addr: "127.0.0.1:9527",
-	}
+	r := mux.NewRouter()
+	handler := api.StdApiHandler
 
 	if !gowarden.disableRegistration {
-		http.HandleFunc("/api/accounts/register", api.StdApiHandler.HandleRegister)
+		r.HandleFunc("/api/accounts/register", handler.HandleRegister)
 	}
 
-	http.HandleFunc("/api/accounts/prelogin", api.StdApiHandler.HandlePrelogin)
-	http.HandleFunc("/identity/connect/token", api.StdApiHandler.HandleLogin)
+	r.HandleFunc("/api/accounts/prelogin", handler.HandlePrelogin)
+	r.HandleFunc("/identity/connect/token", handler.HandleLogin)
 
-	server.ListenAndServe()
+	// Must login can access these api.
+	r.HandleFunc("/api/accounts/keys", handler.AuthMiddleware(handler.HandleAccountKeys))
+	// TODO
+	r.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
+	r.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
+	r.HandleFunc("/api/ciphers", handler.AuthMiddleware(handler.HandleCiphers))
+
+	r.HandleFunc("/api/folders", handler.AuthMiddleware(handler.HandleFolder)).Methods(http.MethodPost)
+	r.HandleFunc("/api/folders/{folderUUID}", handler.AuthMiddleware(handler.HandleFolderRename)).Methods(http.MethodPut)
+	r.HandleFunc("/api/folders/{folderUUID}", handler.AuthMiddleware(handler.HandleFolderDelete)).Methods(http.MethodDelete)
+
+	log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, r))
 }
