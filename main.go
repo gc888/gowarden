@@ -14,6 +14,7 @@ var gowarden struct {
 	dir                 string
 	port                string
 	disableRegistration bool
+	secretKey           string
 }
 
 func init() {
@@ -22,14 +23,14 @@ func init() {
 	flag.StringVar(&gowarden.dir, "d", "", "Set the directory.")
 	flag.StringVar(&gowarden.port, "p", "9527", "Set the Port.")
 	flag.BoolVar(&gowarden.disableRegistration, "disableRegistration", false, "Disable registration.")
+	flag.StringVar(&gowarden.secretKey, "key", "secret", "Use to encrypt jwt string.")
 }
 
 func main() {
 	flag.Parse()
 
 	// TODO use for test
-
-	// gowarden.initDB = true
+	gowarden.initDB = true
 
 	sqlite.StdDB.SetDir(gowarden.dir)
 
