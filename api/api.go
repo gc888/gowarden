@@ -22,15 +22,13 @@ import (
 	"fmt"
 
 	"github.com/404cn/gowarden/ds"
-	"github.com/404cn/gowarden/sqlite"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
-	jwtExpiresin  = 3600
-	jwtSigningKey = "secret"
+	jwtExpiresin = 3600
 )
 
 type handler interface {
@@ -43,16 +41,16 @@ type handler interface {
 }
 
 type ApiHandler struct {
-	db handler
+	db         handler
+	signingKey string
 }
 
-func New(db handler) *ApiHandler {
+func New(db handler, key string) *ApiHandler {
 	return &ApiHandler{
-		db: db,
+		db:         db,
+		signingKey: key,
 	}
 }
-
-var StdApiHandler = New(sqlite.StdDB)
 
 func (apiHandler *ApiHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
 
@@ -251,7 +249,7 @@ func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFun
 				log.Printf("Signing method not right: %v\n", token.Header["alg"])
 				return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 			}
-			return []byte(jwtSigningKey), nil
+			return []byte(apiHandler.signingKey), nil
 		})
 
 		if nil != err {
@@ -355,7 +353,7 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		"name":    acc.Name,
 		"premium": true,
 	})
-	accessToken, err := token.SignedString([]byte(jwtSigningKey))
+	accessToken, err := token.SignedString([]byte(apihandler.signingKey))
 	if nil != err {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
