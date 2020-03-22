@@ -24,6 +24,7 @@ import (
 	"github.com/404cn/gowarden/ds"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -40,52 +41,53 @@ type handler interface {
 	RenameFolder(string, string) (ds.Folder, error)
 }
 
-type ApiHandler struct {
+type APIHandler struct {
 	db         handler
 	signingKey string
+	logger     *zap.SugaredLogger
 }
 
-func New(db handler, key string) *ApiHandler {
-	return &ApiHandler{
+func New(db handler, key string, sugar *zap.SugaredLogger) *APIHandler {
+	return &APIHandler{
 		db:         db,
 		signingKey: key,
+		logger:     sugar,
 	}
 }
 
-func (apiHandler *ApiHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// Sync account data.
-func (apiHandler *ApiHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (apiHandler ApiHandler) HandleFolderDelete(w http.ResponseWriter, r *http.Request) {
+func (apiHandler APIHandler) HandleFolderDelete(w http.ResponseWriter, r *http.Request) {
 	folderUUID := mux.Vars(r)["folderUUID"]
 	email := GetEmailRctx(r)
 
-	log.Printf("%v is trying to delete a folder", email)
+	apiHandler.logger.Infof("%v is trying to delete a folder", email)
 
 	err := apiHandler.db.DeleteFolder(folderUUID)
 	if err != nil {
-		log.Println(err)
-		log.Println("Failed to delete folder")
+		apiHandler.logger.Error(err)
+		apiHandler.logger.Error("Failed to delete folder.")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
 	}
 }
 
-func (apiHandler ApiHandler) HandleFolderRename(w http.ResponseWriter, r *http.Request) {
+func (apiHandler APIHandler) HandleFolderRename(w http.ResponseWriter, r *http.Request) {
 	var rfolder struct {
 		Name string `json:"name"`
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&rfolder)
 	if err != nil {
-		log.Println(err)
-		log.Println("Decode failed")
+		apiHandler.logger.Error(err)
+		apiHandler.logger.Error("Falied to decode json.")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -95,11 +97,11 @@ func (apiHandler ApiHandler) HandleFolderRename(w http.ResponseWriter, r *http.R
 	folderUUID := mux.Vars(r)["folderUUID"]
 	email := GetEmailRctx(r)
 
-	log.Printf("%v is trying to rename a folder", email)
+	apiHandler.logger.Infof("%v is trying to rename a folder", email)
 
 	folder, err := apiHandler.db.RenameFolder(rfolder.Name, folderUUID)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -107,7 +109,7 @@ func (apiHandler ApiHandler) HandleFolderRename(w http.ResponseWriter, r *http.R
 
 	b, err := json.Marshal(&folder)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -118,15 +120,15 @@ func (apiHandler ApiHandler) HandleFolderRename(w http.ResponseWriter, r *http.R
 }
 
 // handle add folers
-func (apiHandler ApiHandler) HandleFolder(w http.ResponseWriter, r *http.Request) {
+func (apiHandler APIHandler) HandleFolder(w http.ResponseWriter, r *http.Request) {
 	var rfolder struct {
 		Name string `json:"name"`
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&rfolder)
 	if err != nil {
-		log.Println(err)
-		log.Println("Decode failed")
+		apiHandler.logger.Error("Failed to decode json.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -136,8 +138,8 @@ func (apiHandler ApiHandler) HandleFolder(w http.ResponseWriter, r *http.Request
 	emali := GetEmailRctx(r)
 	acc, err := apiHandler.db.GetAccount(emali)
 	if err != nil {
-		log.Println("Can't get account")
-		log.Println(err)
+		apiHandler.logger.Error("Can't get account.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -145,8 +147,8 @@ func (apiHandler ApiHandler) HandleFolder(w http.ResponseWriter, r *http.Request
 
 	folder, err := apiHandler.db.AddFolder(acc.Id, rfolder.Name)
 	if err != nil {
-		log.Println(err)
-		log.Println("Failed to add folder")
+		apiHandler.logger.Error("Failed to add folder.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -154,7 +156,7 @@ func (apiHandler ApiHandler) HandleFolder(w http.ResponseWriter, r *http.Request
 
 	b, err := json.Marshal(&folder)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -165,14 +167,15 @@ func (apiHandler ApiHandler) HandleFolder(w http.ResponseWriter, r *http.Request
 }
 
 // Handle add ciphers.
-func (apiHandler *ApiHandler) HandleCiphers(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Request) {
 	email := GetEmailRctx(r)
-	log.Printf("%v is trying add cipher.\n", email)
+	apiHandler.logger.Infof("%v is trying add cipher.\n", email)
 
 	// TODO acc
 	_, err := apiHandler.db.GetAccount(email)
 	if nil != err {
-		log.Println(err)
+		apiHandler.logger.Error("Failer to get account.")
+		apiHandler.logger.Error(err)
 		// TODO response writer
 		return
 	}
@@ -180,7 +183,8 @@ func (apiHandler *ApiHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 	var cipher ds.Cipher
 	err = json.NewDecoder(r.Body).Decode(&cipher)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to decode json.")
+		apiHandler.logger.Error(err)
 	}
 	defer r.Body.Close()
 
@@ -188,7 +192,8 @@ func (apiHandler *ApiHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 	// TODO encode responss cipher to b
 	b, err = json.Marshal(&cipher)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to encode json.")
+		apiHandler.logger.Error(err)
 		// TODO response writer
 		return
 	}
@@ -198,13 +203,13 @@ func (apiHandler *ApiHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 }
 
 // Update account's keys.
-func (apiHandler *ApiHandler) HandleAccountKeys(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandleAccountKeys(w http.ResponseWriter, r *http.Request) {
 	var keys ds.Keys
 	err := json.NewDecoder(r.Body).Decode(&keys)
 	defer r.Body.Close()
 	if nil != err {
-		log.Println(err)
-		log.Println("Decode request body failed")
+		apiHandler.logger.Error("Failed to decode request body.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
@@ -214,8 +219,8 @@ func (apiHandler *ApiHandler) HandleAccountKeys(w http.ResponseWriter, r *http.R
 
 	acc, err := apiHandler.db.GetAccount(email)
 	if nil != err {
-		log.Println(err)
-		log.Printf("Account not exits: %v\n", email)
+		apiHandler.logger.Errorf("Failed to get account with %v", email)
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
@@ -231,11 +236,11 @@ func GetEmailRctx(r *http.Request) string {
 }
 
 // Middleware to handle login auth.
-func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFunc {
+func (apiHandler *APIHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth, ok := r.Header["Authorization"]
 		if len(auth) < 1 && !ok {
-			log.Println("No auth header.")
+			apiHandler.logger.Error("No auth header.")
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
@@ -246,14 +251,14 @@ func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFun
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			// Type assertion.
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				log.Printf("Signing method not right: %v\n", token.Header["alg"])
+				apiHandler.logger.Errorf("Signing method not right: %v\n", token.Header["alg"])
 				return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 			}
 			return []byte(apiHandler.signingKey), nil
 		})
 
 		if nil != err {
-			log.Println("JWT token parse error.")
+			apiHandler.logger.Error("JWT token parse error.")
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
@@ -276,14 +281,14 @@ func (apiHandler *ApiHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFun
 
 // Handle login and refresh token.
 // TODO refresh token timeout return 401.
-func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var acc ds.Account
 	var err error
 	r.ParseForm()
 
 	grantType, ok := r.PostForm["grant_type"]
 	if !ok {
-		log.Println("No grant_type.")
+		apiHandler.logger.Error("No grant type.")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
@@ -293,35 +298,36 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		refreshToken := r.PostForm["refresh_token"][0]
 		if len(refreshToken) != 32 {
 			// TODO length 44, base64 encoded
-			log.Printf("Bad token length: %v", len(refreshToken))
+			apiHandler.logger.Errorf("Bad token length: %v", len(refreshToken))
 		}
 
-		acc, err := apihandler.db.GetAccount(refreshToken)
+		acc, err := apiHandler.db.GetAccount(refreshToken)
 		if nil != err {
-			log.Println("Failed to get account from refresh token.")
+			apiHandler.logger.Error("Failed to get account from refresh token.")
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
 		}
 
 		if refreshToken != acc.RefreshToken {
-			log.Println("Bad refresh token.")
+			apiHandler.logger.Error("Bad refresh token.")
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
 		}
 
-		log.Printf("%v is trying to refresh a token.\n", acc.Email)
+		apiHandler.logger.Infof("%v is trying to refresh a token.\n", acc.Email)
 
 	} else {
 		// login in with email.
 		email := r.PostForm["username"][0]
 		password := r.PostForm["password"][0]
 
-		log.Println(email + " is trying to login.")
-		acc, err = checkPassword(email, password, apihandler.db)
+		apiHandler.logger.Info(email + " is trying to login.")
+		acc, err = checkPassword(email, password, apiHandler.db)
 		if err != nil {
-			log.Println(err)
+			apiHandler.logger.Error("Incorrect password.")
+			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
@@ -332,11 +338,11 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 	// If accounts refresh token is not empty, do not change it or the other clients will be logged out.
 	if "" == acc.RefreshToken {
 		acc.RefreshToken = createRefreshToken()
-		err = apihandler.db.UpdateAccount(acc)
+		err = apiHandler.db.UpdateAccount(acc)
 		if err != nil {
 			// FIXME jwt token timeout 401
-			log.Println(err)
-			log.Println("Failed to update account info.")
+			apiHandler.logger.Error("Failed to update account info.")
+			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
@@ -353,9 +359,10 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		"name":    acc.Name,
 		"premium": true,
 	})
-	accessToken, err := token.SignedString([]byte(apihandler.signingKey))
+	accessToken, err := token.SignedString([]byte(apiHandler.signingKey))
 	if nil != err {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to signing jwt token.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -377,7 +384,8 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 
 	d, err := json.Marshal(&rtoken)
 	if nil != err {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to marshal json.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -388,13 +396,15 @@ func (apihandler *ApiHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 	w.Write(d)
 }
 
-func (apiHandler *ApiHandler) HandlePrelogin(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandlePrelogin(w http.ResponseWriter, r *http.Request) {
 	var acc ds.Account
 
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	err := decoder.Decode(&acc)
 	if err != nil {
+		apiHandler.logger.Error("Failed to decode json.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
@@ -402,7 +412,8 @@ func (apiHandler *ApiHandler) HandlePrelogin(w http.ResponseWriter, r *http.Requ
 
 	acc, err = apiHandler.db.GetAccount(acc.Email)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to get account.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(500)))
 		return
@@ -419,7 +430,8 @@ func (apiHandler *ApiHandler) HandlePrelogin(w http.ResponseWriter, r *http.Requ
 
 	d, err := json.Marshal(&data)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to marshal json.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(500)))
 		return
@@ -429,30 +441,33 @@ func (apiHandler *ApiHandler) HandlePrelogin(w http.ResponseWriter, r *http.Requ
 	w.Write(d)
 }
 
-func (apiHandler *ApiHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var acc ds.Account
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	err := decoder.Decode(&acc)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to decode json.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
 	}
 
 	if acc.KdfIterations < 5000 || acc.KdfIterations > 100000 {
-		log.Println(err)
+		apiHandler.logger.Error("Bad kdf iterations.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
 	}
 
-	log.Println(acc.Email + " is trying to register.")
+	apiHandler.logger.Info(acc.Email + " is trying to register.")
 
 	acc.MasterPasswordHash, err = makeKey(acc.MasterPasswordHash, acc.Email, acc.KdfIterations)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to generate key.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(500)))
 		return
@@ -460,7 +475,8 @@ func (apiHandler *ApiHandler) HandleRegister(w http.ResponseWriter, r *http.Requ
 
 	err = apiHandler.db.AddAccount(acc)
 	if err != nil {
-		log.Println(err)
+		apiHandler.logger.Error("Failed to get account.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(500)))
 		return

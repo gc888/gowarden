@@ -8,6 +8,8 @@ import (
 	"github.com/404cn/gowarden/api"
 	"github.com/404cn/gowarden/sqlite"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var gowarden struct {
@@ -16,6 +18,8 @@ var gowarden struct {
 	port                string
 	disableRegistration bool
 	secretKey           string
+	logLevel            string
+	logPath             string
 }
 
 func init() {
@@ -25,32 +29,43 @@ func init() {
 	flag.StringVar(&gowarden.port, "p", "9527", "Set the Port.")
 	flag.BoolVar(&gowarden.disableRegistration, "disableRegistration", false, "Disable registration.")
 	flag.StringVar(&gowarden.secretKey, "key", "secret", "Use to encrypt jwt string.")
+	flag.StringVar(&gowarden.logLevel, "loglevel", "Info", "Set log level.")
+	flag.StringVar(&gowarden.logPath, "logpath", "", "Set log path.")
 }
 
 func main() {
 	flag.Parse()
 
-	sqlite.StdDB.SetDir(gowarden.dir)
+	// TODO set log module
+	logger, _ := zap.NewProduction()
+	sugar := logger.Sugar()
+	defer sugar.Sync()
 
+	// TODO just for test
+	gowarden.initDB = true
+
+	// TODO set log level and path
+
+	sqlite.StdDB.SetDir(gowarden.dir)
 	err := sqlite.StdDB.Open()
 	if err != nil {
-		log.Println(err)
+		sugar.Fatal(err)
 		return
 	}
 	defer sqlite.StdDB.Close()
 
 	if gowarden.initDB {
-		log.Println("Try to initalize sqlite ...")
+		sugar.Info("Try to initalize sqlite ...")
 		err := sqlite.StdDB.Init()
 		if err != nil {
-			log.Fatal(err)
+			logrus.Fatal(err)
 			return
 		}
-		log.Println("Database initalized.")
+		sugar.Info("Database initalized.")
 	}
 
 	r := mux.NewRouter()
-	handler := api.StdApiHandler
+	handler := api.New(sqlite.StdDB, gowarden.secretKey, sugar)
 
 	if !gowarden.disableRegistration {
 		r.HandleFunc("/api/accounts/register", handler.HandleRegister)
