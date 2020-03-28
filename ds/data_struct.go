@@ -5,25 +5,39 @@ import (
 )
 
 type Cipher struct {
-	Object              string
-	FolderId            string
-	Favorite            bool
-	Edit                bool
-	Id                  string
-	OrganizationId      string
-	Type                int
-	Data                CipherData
-	Name                string
-	Notes               string
-	Login               Login
-	Card                string
-	Identiey            string
-	SecureNote          SecureNote
-	Fields              []Fields
-	PasswordHistory     string
-	Attachments         []string
+	// 类型, 一般为cipher
+	Object string
+	// 与之关联的文件夹id, 没有则为nil
+	FolderId string
+	// 是否为favorite
+	Favorite bool
+	// TODO 暂时为true, 未找到false的情况
+	Edit bool
+	// 表示一个唯一cipher的id
+	Id string
+	// TODO 组织id, 暂时不知道作用
+	OrganizationId string
+	// 类型, 详见API.org
+	Type  int
+	Data  CipherData
+	Name  string
+	Notes string
+
+	// four type of cipher
+	Login      Login
+	Card       string
+	Identiey   []string
+	SecureNote SecureNote
+
+	Fields []Fields
+	// TODO 暂时为nil
+	PasswordHistory string
+	// TODO 附件
+	Attachments []string
+	// TODO some totp thing about origianization
 	OrganizationUseTotp bool
-	RevisionDate        time.Time
+	// 时间 例如:2020-03-25T15:05:32.26576882
+	RevisionDate time.Time
 }
 
 type SecureNote struct {
@@ -39,37 +53,36 @@ type CipherData struct {
 	Totp                 string
 	Name                 string
 	Notes                string
-	Fields               string
+	Fields               []Fields
 	PasswordHistory      string
 }
 
 type Login struct {
-	Response             string `json:"response"`
-	Uris                 []Uris `json:"uris"`
-	UserName             string `json:"username"`
-	Password             string `json:"password"`
-	PasswordRevisionDate string `json:"passwordRevisionDate"`
-	Totp                 string `json:"totp"`
+	Uri                  string
+	Uris                 []Uris
+	UserName             string
+	Password             string
+	PasswordRevisionDate string
+	Totp                 string
 }
 
 type Uris struct {
-	Match string `json:"match"`
-	Uri   string `json:"uri"`
+	Match string
+	Uri   string
 }
 
 type Fields struct {
-	Response string `json:"response"`
-	Type     int    `josn:"type"`
-	Name     string `json:"name"`
-	Value    string `json:"value"`
+	Type  int
+	Name  string
+	Value string
 }
 
 // type to handle folders's response
 type Folder struct {
-	Id           string    `json:"Id"`
-	Name         string    `json:"Name"`
-	RevisionDate time.Time `json:"RevisionDate"`
-	Object       string    `json:"Object"`
+	Id           string
+	Name         string
+	RevisionDate time.Time
+	Object       string
 }
 
 type Account struct {
