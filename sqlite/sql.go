@@ -75,9 +75,7 @@ func New() *DB {
 	return &DB{}
 }
 
-var StdDB = New()
-
-func (db *DB) AddCipher(cipher *ds.Cipher, accountID string) (ds.Cipher, error) {
+func (db *DB) AddCipher(cipher ds.Cipher, str string) (ds.Cipher, error) {
 	return ds.Cipher{}, nil
 }
 

@@ -46,17 +46,18 @@ func main() {
 
 	// TODO set log level and path
 
-	sqlite.StdDB.SetDir(gowarden.dir)
-	err := sqlite.StdDB.Open()
+	db := sqlite.New()
+	db.SetDir(gowarden.dir)
+	err := db.Open()
 	if err != nil {
 		sugar.Fatal(err)
 		return
 	}
-	defer sqlite.StdDB.Close()
+	defer db.Close()
 
 	if gowarden.initDB {
 		sugar.Info("Try to initalize sqlite ...")
-		err := sqlite.StdDB.Init()
+		err := db.Init()
 		if err != nil {
 			logrus.Fatal(err)
 			return
@@ -65,7 +66,7 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	handler := api.New(sqlite.StdDB, gowarden.secretKey, sugar)
+	handler := api.New(db, gowarden.secretKey, sugar)
 
 	if !gowarden.disableRegistration {
 		r.HandleFunc("/api/accounts/register", handler.HandleRegister)
