@@ -75,6 +75,14 @@ func New() *DB {
 	return &DB{}
 }
 
+func (db *DB) DeleteCipher(accId, cipherId string) error {
+	return nil
+}
+
+func (db *DB) UpdateCipher(cipher ds.Cipher, accId string, cipherId string) error {
+	return nil
+}
+
 func (db *DB) AddCipher(cipher ds.Cipher, str string) (ds.Cipher, error) {
 	return ds.Cipher{}, nil
 }

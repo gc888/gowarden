@@ -17,6 +17,8 @@ type handler interface {
 	DeleteFolder(string) error
 	RenameFolder(string, string) (ds.Folder, error)
 	AddCipher(ds.Cipher, string) (ds.Cipher, error)
+	UpdateCipher(ds.Cipher, string, string) error
+	DeleteCipher(string, string) error
 }
 
 type APIHandler struct {

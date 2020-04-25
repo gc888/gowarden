@@ -41,9 +41,6 @@ func main() {
 	sugar := logger.Sugar()
 	defer sugar.Sync()
 
-	// TODO just for test
-	gowarden.initDB = true
-
 	// TODO set log level and path
 
 	db := sqlite.New()
@@ -81,8 +78,8 @@ func main() {
 	r.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
 	r.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
 	r.HandleFunc("/api/ciphers", handler.AuthMiddleware(handler.HandleCiphers)).Methods(http.MethodPost)
-	r.HandleFunc("/api/ciphers/{cipherUUID}", handler.AuthMiddleware(handler.HandleUpdateCiphers)).Methods(http.MethodPut)
-	r.HandleFunc("/api/ciphers/{cipherUUID}", handler.AuthMiddleware(handler.HandleDeleteCiphers)).Methods(http.MethodDelete)
+	r.HandleFunc("/api/ciphers/{cipherId}", handler.AuthMiddleware(handler.HandleUpdateCiphers)).Methods(http.MethodPut)
+	r.HandleFunc("/api/ciphers/{cipherId}", handler.AuthMiddleware(handler.HandleDeleteCiphers)).Methods(http.MethodDelete)
 
 	r.HandleFunc("/api/folders", handler.AuthMiddleware(handler.HandleFolder)).Methods(http.MethodPost)
 	r.HandleFunc("/api/folders/{folderUUID}", handler.AuthMiddleware(handler.HandleFolderRename)).Methods(http.MethodPut)

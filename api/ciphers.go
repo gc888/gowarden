@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/gorilla/mux"
 	"net/http"
 
 	"github.com/404cn/gowarden/ds"
@@ -32,18 +33,23 @@ func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 	}
 	defer r.Body.Close()
 
+	// TODO wait to implement
 	resCipher, err := apiHandler.db.AddCipher(cipher, acc.Id)
 	if err != nil {
-		// TODO
+		apiHandler.logger.Error("Error to add cipher.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
 	}
 
 	var b []byte
-	// TODO encode responss cipher to b
 	b, err = json.Marshal(&resCipher)
 	if err != nil {
 		apiHandler.logger.Error("Failed to encode json.")
 		apiHandler.logger.Error(err)
-		// TODO response writer
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
 	}
 
@@ -51,10 +57,72 @@ func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 	w.Write(b)
 }
 
-func (apiHander *APIHandler) HandleUpdateCiphers(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandleUpdateCiphers(w http.ResponseWriter, r *http.Request) {
+	email := getEmailRctx(r)
+	apiHandler.logger.Infof("%v is trying to update cipher.", email)
 
+	acc, err := apiHandler.db.GetAccount(email)
+	if nil != err {
+		apiHandler.logger.Error("Failed to get account.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+
+	cipherId := mux.Vars(r)["cipherId"]
+
+	var cipher ds.Cipher
+	err = json.NewDecoder(r.Body).Decode(&cipher)
+	if err != nil {
+		apiHandler.logger.Error("Failed to decode json.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+	defer r.Body.Close()
+
+	// TODO 更新cipher的时候会更新id？
+	cipher.Id = cipherId
+	err = apiHandler.db.UpdateCipher(cipher, acc.Id, cipherId)
+	if err != nil {
+		// TODO
+	}
+
+	d, err := json.Marshal(&cipher)
+	if err != nil {
+		// TODO:
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(d)
+
+	apiHandler.logger.Infof("cipher %v updated.", cipherId)
+	return
 }
 
-func (apiHander *APIHandler) HandleDeleteCiphers(w http.ResponseWriter, r *http.Request) {
+func (apiHandler *APIHandler) HandleDeleteCiphers(w http.ResponseWriter, r *http.Request) {
+	email := getEmailRctx(r)
+	apiHandler.logger.Infof("%v is trying to delete cipher.", email)
 
+	acc, err := apiHandler.db.GetAccount(email)
+	if nil != err {
+		apiHandler.logger.Error("Failed to get account.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+
+	cipherId := mux.Vars(r)["cipherId"]
+
+	err = apiHandler.db.DeleteCipher(acc.Id, cipherId)
+	if err != nil {
+		// TODO
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	// TODO w.Write
+	apiHandler.logger.Infof("Cipher %v deleted.", cipherId)
+	return
 }
