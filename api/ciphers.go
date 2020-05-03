@@ -15,7 +15,6 @@ func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 
 	acc, err := apiHandler.db.GetAccount(email)
 	if nil != err {
-		apiHandler.logger.Error("Failed to get account.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
@@ -23,9 +22,10 @@ func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 	}
 
 	var cipher ds.Cipher
+	// FIXME can't decode, 较decode成功的多了fields字段
+	// TODO fields's type  [] string -> []fields
 	err = json.NewDecoder(r.Body).Decode(&cipher)
 	if err != nil {
-		apiHandler.logger.Error("Failed to decode json.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
@@ -36,17 +36,16 @@ func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 	// TODO wait to implement
 	resCipher, err := apiHandler.db.AddCipher(cipher, acc.Id)
 	if err != nil {
-		apiHandler.logger.Error("Error to add cipher.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
 	}
 
+	// FIXME data中数据为空，login有数据
 	var b []byte
 	b, err = json.Marshal(&resCipher)
 	if err != nil {
-		apiHandler.logger.Error("Failed to encode json.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
@@ -63,7 +62,6 @@ func (apiHandler *APIHandler) HandleUpdateCiphers(w http.ResponseWriter, r *http
 
 	acc, err := apiHandler.db.GetAccount(email)
 	if nil != err {
-		apiHandler.logger.Error("Failed to get account.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
@@ -75,7 +73,6 @@ func (apiHandler *APIHandler) HandleUpdateCiphers(w http.ResponseWriter, r *http
 	var cipher ds.Cipher
 	err = json.NewDecoder(r.Body).Decode(&cipher)
 	if err != nil {
-		apiHandler.logger.Error("Failed to decode json.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
@@ -107,7 +104,6 @@ func (apiHandler *APIHandler) HandleDeleteCiphers(w http.ResponseWriter, r *http
 
 	acc, err := apiHandler.db.GetAccount(email)
 	if nil != err {
-		apiHandler.logger.Error("Failed to get account.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))

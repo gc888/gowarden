@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/404cn/gowarden/api"
 	"github.com/404cn/gowarden/sqlite"
@@ -20,6 +21,8 @@ var gowarden struct {
 	secretKey           string
 	logLevel            string
 	logPath             string
+	disableFavicon      bool
+	faviconServerPort   string
 }
 
 func init() {
@@ -31,6 +34,16 @@ func init() {
 	flag.StringVar(&gowarden.secretKey, "key", "secret", "Use to encrypt jwt string.")
 	flag.StringVar(&gowarden.logLevel, "loglevel", "Info", "Set log level.")
 	flag.StringVar(&gowarden.logPath, "logpath", "", "Set log path.")
+	flag.BoolVar(&gowarden.disableFavicon, "disableFavicon", false, "Disable favicon server.")
+	flag.StringVar(&gowarden.faviconServerPort, "faviconServerPort", "9528", "Set favicon server port.")
+}
+
+func isDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
 }
 
 func main() {
@@ -52,6 +65,9 @@ func main() {
 	}
 	defer db.Close()
 
+	// just for test TODO delete
+	//gowarden.initDB = true
+
 	if gowarden.initDB {
 		sugar.Info("Try to initalize sqlite ...")
 		err := db.Init()
@@ -63,7 +79,7 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	handler := api.New(db, gowarden.secretKey, sugar)
+	handler := api.New(db, gowarden.secretKey, sugar, gowarden.faviconServerPort)
 
 	if !gowarden.disableRegistration {
 		r.HandleFunc("/api/accounts/register", handler.HandleRegister)
@@ -75,7 +91,7 @@ func main() {
 	// Must login can access these api.
 	r.HandleFunc("/api/accounts/keys", handler.AuthMiddleware(handler.HandleAccountKeys))
 	// TODO
-	r.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync))
+	r.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync)).Methods(http.MethodGet)
 	r.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
 	r.HandleFunc("/api/ciphers", handler.AuthMiddleware(handler.HandleCiphers)).Methods(http.MethodPost)
 	r.HandleFunc("/api/ciphers/{cipherId}", handler.AuthMiddleware(handler.HandleUpdateCiphers)).Methods(http.MethodPut)
@@ -84,6 +100,18 @@ func main() {
 	r.HandleFunc("/api/folders", handler.AuthMiddleware(handler.HandleFolder)).Methods(http.MethodPost)
 	r.HandleFunc("/api/folders/{folderUUID}", handler.AuthMiddleware(handler.HandleFolderRename)).Methods(http.MethodPut)
 	r.HandleFunc("/api/folders/{folderUUID}", handler.AuthMiddleware(handler.HandleFolderDelete)).Methods(http.MethodDelete)
+
+	if !gowarden.disableFavicon {
+		if !isDir("icons") {
+			sugar.Info("Didn't find icon's cache folder, try to create...")
+			err = os.Mkdir("icons", os.ModePerm)
+			if err != nil {
+				sugar.Error(err)
+			}
+			sugar.Info("Success to create icons folder.")
+		}
+		r.HandleFunc("/icons/{domain}/{icon}", handler.HandleFavicon).Methods(http.MethodGet)
+	}
 
 	log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, r))
 }

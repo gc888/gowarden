@@ -2,10 +2,10 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-
 	"path"
 
 	"regexp"
@@ -45,25 +45,10 @@ const (
                         revisionDate INTEGER,
                         type INTEGER,
                         folderId TEXT,
-                        organizationId TEXT,
-                        notes TEXT,
                         favorite INTEGER NOT NULL,
-                        response TEXT,
-                        username TEXT,
-                        password TEXT,
-                        passwordRevisionDate INTEGER,
-                        totp TEXT,
+                        data REAL,
                         PRIMARY KEY(id)
-                   )`
-
-	uriTable = `CREATE TABLE IF NOT EXISTS "uris" (
-                    id TEXT,
-                    cipherId TEXT,
-                    response TEXT,
-                    match TEXT,
-                    uri TEXT,
-                    PRIMARY KEY(id)
-                )`
+                    )`
 )
 
 type DB struct {
@@ -75,16 +60,189 @@ func New() *DB {
 	return &DB{}
 }
 
+func (db *DB) GetFolders(accId string) ([]ds.Folder, error) {
+	var folders []ds.Folder
+
+	rows, err := db.db.Query("SELECT id, name, revisionDate FROM folders WHERE accountId=?", accId)
+	if err != nil {
+		return folders, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var folder ds.Folder
+		var revData int64
+		err = rows.Scan(&folder.Id, &folder.Name, &revData)
+		if err != nil {
+			return folders, err
+		}
+
+		folder.RevisionDate = time.Unix(revData, 0)
+
+		folders = append(folders, folder)
+	}
+
+	if len(folders) < 1 {
+		folders = make([]ds.Folder, 0)
+	}
+	return folders, err
+}
+
+func makeNewCipher(cipher *ds.Cipher) {
+	cipher.Card = nil
+	cipher.Fields = nil
+	cipher.Identity = nil
+	cipher.Name = cipher.Data.Name
+
+	// Set ciph.Data.Uris if it's not in the DB
+	if cipher.Data.Uri != nil && cipher.Data.Uris == nil {
+		cipher.Data.Uris = []ds.Uri{ds.Uri{
+			Uri:   cipher.Data.Uri,
+			Match: nil,
+		}}
+	}
+
+	if cipher.Data.Username != nil {
+		cipher.Login = ds.Login{
+			Username: cipher.Data.Username,
+			Totp:     cipher.Data.Totp,
+			Uri:      cipher.Data.Uri,
+			Uris:     cipher.Data.Uris,
+			Password: cipher.Data.Password,
+		}
+	}
+
+	cipher.Notes = cipher.Data.Notes
+	if cipher.Notes != nil {
+		cipher.SecureNote = ds.SecureNote{
+			Type: 0,
+		}
+	}
+}
+
+func row2cipher(row *sql.Rows) (ds.Cipher, error) {
+	cipher := ds.Cipher{
+		Favorite:            false,
+		Edit:                true,
+		OrganizationUseTotp: false,
+		Object:              "cipher",
+		Attachments:         nil,
+		FolderId:            nil,
+	}
+
+	var accId string
+	var favorite int
+	var revDate int64
+	var jsonData []byte
+	var folderId sql.NullString
+	err := row.Scan(&cipher.Id, &accId, &revDate, &cipher.Type, &folderId, &favorite, &jsonData)
+	if err != nil {
+		return cipher, err
+	}
+
+	// data 以外的字段手动构造
+	err = json.Unmarshal(jsonData, &cipher.Data)
+	if err != nil {
+		return cipher, err
+	}
+
+	if favorite == 1 {
+		cipher.Favorite = true
+	}
+
+	cipher.RevisionDate = time.Unix(revDate, 0)
+
+	if folderId.Valid {
+		cipher.FolderId = &folderId.String
+	}
+
+	makeNewCipher(&cipher)
+	return cipher, nil
+}
+
+func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
+	var ciphers []ds.Cipher
+
+	rows, err := db.db.Query("SELECT * FROM ciphers WHERE accountId=$1", accId)
+	if err != nil {
+		return ciphers, err
+	}
+
+	for rows.Next() {
+		var cipher ds.Cipher
+		cipher, err = row2cipher(rows)
+		if err != nil {
+			return ciphers, err
+		}
+
+		ciphers = append(ciphers, cipher)
+	}
+
+	return ciphers, nil
+}
+
 func (db *DB) DeleteCipher(accId, cipherId string) error {
+	stmt, err := db.db.Prepare("DELETE FROM ciphers WHERE id=$1 AND accountId=$2")
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(cipherId, accId)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (db *DB) UpdateCipher(cipher ds.Cipher, accId string, cipherId string) error {
+	favorite := 0
+	if cipher.Favorite {
+		favorite = 1
+	}
+
+	stmt, err := db.db.Prepare("UPDATE ciphers SET type=$1, revisionDate=$2, data=$3, folderId=$4, favorite=$5 WHERE id=$6 and accountId=$7")
+	if err != nil {
+		return err
+	}
+
+	jsonData, err := json.Marshal(&cipher.Data)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(cipher.Type, time.Now().Unix(), jsonData, cipher.FolderId, favorite, cipherId, accId)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (db *DB) AddCipher(cipher ds.Cipher, str string) (ds.Cipher, error) {
-	return ds.Cipher{}, nil
+func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
+	cipher.RevisionDate = time.Now()
+
+	stmt, err := db.db.Prepare("INSERT INTO ciphers values(?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return cipher, err
+	}
+
+	// 字段太多，直接jsonify存起来
+	b, err := json.Marshal(&cipher.Data)
+	if err != nil {
+		return cipher, nil
+	}
+
+	cipherId := uuid.Must(uuid.NewRandom())
+
+	// TODO
+	_, err = stmt.Exec(cipherId, accId, cipher.RevisionDate.Unix(), cipher.Type, cipher.FolderId, 0, b)
+	if err != nil {
+		return cipher, err
+	}
+
+	makeNewCipher(&cipher)
+	return cipher, nil
 }
 
 func (db *DB) DeleteFolder(folderUUID string) error {

@@ -12,10 +12,6 @@ func (apiHandler *APIHandler) HandleNegotiate(w http.ResponseWriter, r *http.Req
 
 }
 
-func (apiHandler *APIHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
-
-}
-
 // Update account's keys.
 func (apiHandler *APIHandler) HandleAccountKeys(w http.ResponseWriter, r *http.Request) {
 	var keys ds.Keys

@@ -16,7 +16,6 @@ func (apiHandler APIHandler) HandleFolderDelete(w http.ResponseWriter, r *http.R
 	err := apiHandler.db.DeleteFolder(folderUUID)
 	if err != nil {
 		apiHandler.logger.Error(err)
-		apiHandler.logger.Error("Failed to delete folder.")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -31,7 +30,6 @@ func (apiHandler APIHandler) HandleFolderRename(w http.ResponseWriter, r *http.R
 	err := json.NewDecoder(r.Body).Decode(&rfolder)
 	if err != nil {
 		apiHandler.logger.Error(err)
-		apiHandler.logger.Error("Falied to decode json.")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
@@ -71,7 +69,6 @@ func (apiHandler APIHandler) HandleFolder(w http.ResponseWriter, r *http.Request
 
 	err := json.NewDecoder(r.Body).Decode(&rfolder)
 	if err != nil {
-		apiHandler.logger.Error("Failed to decode json.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
@@ -82,7 +79,6 @@ func (apiHandler APIHandler) HandleFolder(w http.ResponseWriter, r *http.Request
 	emali := getEmailRctx(r)
 	acc, err := apiHandler.db.GetAccount(emali)
 	if err != nil {
-		apiHandler.logger.Error("Can't get account.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
@@ -91,7 +87,6 @@ func (apiHandler APIHandler) HandleFolder(w http.ResponseWriter, r *http.Request
 
 	folder, err := apiHandler.db.AddFolder(acc.Id, rfolder.Name)
 	if err != nil {
-		apiHandler.logger.Error("Failed to add folder.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))

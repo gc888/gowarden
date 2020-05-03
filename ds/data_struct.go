@@ -4,6 +4,65 @@ import (
 	"time"
 )
 
+// struct used in sync
+type SyncData struct {
+	Profile Profile
+	Folders []Folder
+	Ciphers []Cipher
+	Domains Domains
+	Object  string
+}
+
+type Domains struct {
+	EquivalentDomains       []string
+	GlobalEquivalentDomains []GlobalEquivalentDomains
+	Object                  string
+}
+
+type GlobalEquivalentDomains struct {
+	Type     int
+	Domains  []string
+	Excluded bool
+}
+
+// profile to in syncing
+type Profile struct {
+	Id                 string
+	Name               *string
+	Email              string
+	EmailVerified      bool
+	Premium            bool
+	MasterPasswordHint string
+	Culture            string
+	TwoFactorEnabled   bool
+	Key                string
+	PrivateKey         string
+	SecurityStamp      *string
+	Organizations      []string
+	Object             string
+}
+
+func (acc Account) Profile() Profile {
+	p := Profile{
+		Id:                 acc.Id,
+		Name:               nil,
+		Email:              acc.Email,
+		EmailVerified:      false,
+		Premium:            false,
+		MasterPasswordHint: acc.MasterPasswordHint,
+		Culture:            "en-US",
+		TwoFactorEnabled:   false,
+		Key:                acc.Key,
+		PrivateKey:         acc.Keys.EncryptedPrivateKey,
+		SecurityStamp:      nil,
+		Organizations:      make([]string, 0),
+		Object:             "profile",
+	}
+
+	return p
+}
+
+// structs about cipher
 type Cipher struct {
 	Type                int
 	FolderId            *string
@@ -19,7 +78,7 @@ type Cipher struct {
 	CollectionIds       []string
 
 	Card       *string
-	Fields     []string
+	Fields     []FieldsType
 	Identity   *string
 	Login      Login
 	Name       *string
@@ -34,8 +93,14 @@ type CipherData struct {
 	Totp     *string
 	Name     *string
 	Notes    *string
-	Fields   []string
+	Fields   []FieldsType
 	Uris     []Uri
+}
+
+type FieldsType struct {
+	Type  int
+	Name  string
+	Value string
 }
 
 type Uri struct {

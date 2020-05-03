@@ -18,7 +18,7 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 
 	grantType, ok := r.PostForm["grant_type"]
 	if !ok {
-		apiHandler.logger.Error("No grant type.")
+		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		return
@@ -33,14 +33,14 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 
 		acc, err := apiHandler.db.GetAccount(refreshToken)
 		if nil != err {
-			apiHandler.logger.Error("Failed to get account from refresh token.")
+			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
 		}
 
 		if refreshToken != acc.RefreshToken {
-			apiHandler.logger.Error("Bad refresh token.")
+			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return
@@ -56,7 +56,6 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		apiHandler.logger.Info(email + " is trying to login.")
 		acc, err = checkPassword(email, password, apiHandler.db)
 		if err != nil {
-			apiHandler.logger.Error("Incorrect password.")
 			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
@@ -71,7 +70,6 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		err = apiHandler.db.UpdateAccount(acc)
 		if err != nil {
 			// FIXME jwt token timeout 401
-			apiHandler.logger.Error("Failed to update account info.")
 			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
@@ -91,7 +89,6 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 	})
 	accessToken, err := token.SignedString([]byte(apiHandler.signingKey))
 	if nil != err {
-		apiHandler.logger.Error("Failed to signing jwt token.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
@@ -114,7 +111,6 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 
 	d, err := json.Marshal(&rtoken)
 	if nil != err {
-		apiHandler.logger.Error("Failed to marshal json.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
@@ -133,7 +129,6 @@ func (apiHandler *APIHandler) HandlePrelogin(w http.ResponseWriter, r *http.Requ
 	defer r.Body.Close()
 	err := decoder.Decode(&acc)
 	if err != nil {
-		apiHandler.logger.Error("Failed to decode json.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
@@ -142,7 +137,6 @@ func (apiHandler *APIHandler) HandlePrelogin(w http.ResponseWriter, r *http.Requ
 
 	acc, err = apiHandler.db.GetAccount(acc.Email)
 	if err != nil {
-		apiHandler.logger.Error("Failed to get account.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(500)))
@@ -160,7 +154,6 @@ func (apiHandler *APIHandler) HandlePrelogin(w http.ResponseWriter, r *http.Requ
 
 	d, err := json.Marshal(&data)
 	if err != nil {
-		apiHandler.logger.Error("Failed to marshal json.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(500)))
