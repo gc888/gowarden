@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -46,10 +45,38 @@ const (
                         type INTEGER,
                         folderId TEXT,
                         favorite INTEGER NOT NULL,
-                        data REAL,
+						name TEXT,
+						notes TEXT,
+                        PRIMARY KEY(id)
+                    )`
+	// TODO how to handle totp
+	loginTable = `CREATE TABLE IF NOT EXISTS "logins" (
+                        id TEXT,
+                        cipherId TEXT,
+						username TEXT,
+						password TEXT,
+ 						totp INTEGER,
+                        PRIMARY KEY(id)
+                    )`
+
+	uriTable = `CREATE TABLE IF NOT EXISTS "uris" (
+                        id TEXT,
+                        cipherId TEXT,
+						match INTEGER,
+						uri TEXT,
+                        PRIMARY KEY(id)
+                    )`
+	fieldTable = `CREATE TABLE IF NOT EXISTS "fields" (
+                        id TEXT,
+                        cipherId TEXT,
+						type INTEGER,
+						name TEXT,
+						value TEXT,
                         PRIMARY KEY(id)
                     )`
 )
+
+// FIXME uri and fields in databse is empty
 
 type DB struct {
 	db  *sql.DB
@@ -58,6 +85,275 @@ type DB struct {
 
 func New() *DB {
 	return &DB{}
+}
+
+func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
+	cipher.Id = uuid.Must(uuid.NewRandom()).String()
+	cipher.RevisionDate = time.Now()
+	var favorite int
+
+	if cipher.Favorite {
+		favorite = 1
+	}
+
+	cipherStmt, err := db.db.Prepare("INSERT INTO ciphers VALUES(?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return cipher, nil
+	}
+
+	loginStmt, err := db.db.Prepare("INSERT INTO logins VALUES(?, ?, ?, ?, ?)")
+	if err != nil {
+		return cipher, nil
+	}
+
+	uriStmt, err := db.db.Prepare("INSERT INTO uris VALUES(?, ?, ?, ?)")
+	if err != nil {
+		return cipher, nil
+	}
+
+	fieldStmt, err := db.db.Prepare("INSERT INTO fields VALUES(?, ?, ?, ?, ?)")
+	if err != nil {
+		return cipher, nil
+	}
+
+	_, err = cipherStmt.Exec(cipher.Id, accId, cipher.RevisionDate.Unix(), cipher.Type, cipher.FolderId, favorite, cipher.Name, cipher.Notes)
+	if err != nil {
+		return cipher, nil
+	}
+
+	// TODO totp's handle
+	_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Login.Username, cipher.Login.Password, 0)
+	if err != nil {
+		return cipher, nil
+	}
+
+	for _, uri := range cipher.Login.Uris {
+		_, err = uriStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, uri.Match, uri.Uri)
+		if err != nil {
+			return cipher, nil
+		}
+	}
+
+	for _, field := range cipher.Fields {
+		_, err = fieldStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, field.Type, field.Name, field.Value)
+		if err != nil {
+			return cipher, nil
+		}
+	}
+
+	makeNewCipher(&cipher)
+	return cipher, nil
+}
+
+func makeNewCipher(cipher *ds.Cipher) {
+	cipher.Object = "cipher"
+	cipher.Edit = true
+
+	if cipher.Login.Uris != nil {
+		cipher.Login.Uri, cipher.Data.Uri = cipher.Login.Uris[0].Uri, cipher.Login.Uris[0].Uri
+	}
+
+	// 只有object为login时
+	if cipher.Login.Username != nil {
+		cipher.Data = ds.CipherData{
+			Username: cipher.Login.Username,
+			Password: cipher.Login.Password,
+			Totp:     cipher.Login.Totp,
+			Name:     cipher.Name,
+			Notes:    cipher.Notes,
+			Fields:   cipher.Fields,
+			Uris:     cipher.Login.Uris,
+		}
+	}
+
+}
+
+func (db *DB) DeleteCipher(accId, cipherId string) error {
+	cipherStmt, err := db.db.Prepare("DELETE FROM ciphers WHERE id=$1 AND accountId=$2")
+	if err != nil {
+		return err
+	}
+
+	_, err = cipherStmt.Exec(cipherId, accId)
+	if err != nil {
+		return err
+	}
+
+	loginStmt, err := db.db.Prepare("DELETE FROM logins WHERE cipherId=$1")
+	if err != nil {
+		return err
+	}
+
+	_, err = loginStmt.Exec(cipherId)
+	if err != nil {
+		return err
+	}
+
+	uriStmt, err := db.db.Prepare("DELETE FROM uris WHERE cipherId=$1")
+	if err != nil {
+		return err
+	}
+
+	_, err = uriStmt.Exec(cipherId)
+	if err != nil {
+		return err
+	}
+
+	fieldStmt, err := db.db.Prepare("DELETE FROM fields WHERE cipherId=$1")
+	if err != nil {
+		return err
+	}
+
+	_, err = fieldStmt.Exec(cipherId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) error {
+	now := time.Now()
+	favorite := 0
+	if cipher.Favorite {
+		favorite = 1
+	}
+
+	cipherStmt, err := db.db.Prepare("UPDATE ciphers SET revisionDate=$1, type=$2, folderId=$3, favorite=$4, name=$5, notes=$6 WHERE id=$7 AND accountId=$8")
+	if err != nil {
+		return err
+	}
+
+	_, err = cipherStmt.Exec(now.Unix(), cipher.Type, cipher.FolderId, favorite, cipher.Name, cipher.Notes, cipher.Id, accId)
+	if err != nil {
+		return err
+	}
+
+	loginStmt, err := db.db.Prepare("UPDATE logins SET username=$1, password=$2, totp=$3 WHERE cipherId=$4")
+	if err != nil {
+		return err
+	}
+
+	_, err = loginStmt.Exec(cipher.Login.Username, cipher.Login.Password, cipher.Login.Totp, cipher.Id)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.db.Exec("DELETE FROM uris WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return err
+	}
+	uriStmt, err := db.db.Prepare("INSERT INTO uris VALUES (?, ?, ? ,?)")
+	if err != nil {
+		return err
+	}
+
+	for _, uri := range cipher.Login.Uris {
+		_, err = uriStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, uri.Match, uri.Uri)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = db.db.Exec("DELETE FROM fields WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return err
+	}
+	fieldStmt, err := db.db.Prepare("INSERT INTO fields VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+
+	for _, field := range cipher.Fields {
+		_, err = fieldStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, field.Type, field.Name, field.Value)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
+	var ciphers []ds.Cipher
+	var cipherId string
+	// 占位使用
+	var fooId string
+
+	db.db.QueryRow("SELECT DISTINCT id FROM ciphers WHERE accountId=$1", accId).Scan(&cipherId)
+
+	cipherRows, err := db.db.Query("SELECT * FROM ciphers WHERE accountId=$1", accId)
+	if err != nil {
+		return ciphers, err
+	}
+
+	for cipherRows.Next() {
+		var cipher ds.Cipher
+		var revDate int64
+		var favorite int
+
+		err = cipherRows.Scan(&cipher.Id, &fooId, &revDate, &cipher.Type, &cipher.FolderId, &favorite, &cipher.Name, &cipher.Notes)
+		if err != nil {
+			return ciphers, err
+		}
+
+		if favorite == 1 {
+			cipher.Favorite = true
+		}
+
+		cipher.RevisionDate = time.Unix(revDate, 0)
+
+		ciphers = append(ciphers, cipher)
+	}
+
+	for i, cipher := range ciphers {
+		loginRow := db.db.QueryRow("SELECT username, password, totp FROM logins WHERE cipherId=$1", cipher.Id)
+
+		err = loginRow.Scan(&cipher.Login.Username, &cipher.Login.Password, &cipher.Login.Totp)
+		if err != nil {
+			return ciphers, err
+		}
+
+		uriRows, err := db.db.Query("SELECT match, uri FROM uris WHERE cipherId=$1", cipher.Id)
+		if err != nil {
+			return ciphers, err
+		}
+		var uris []ds.Uri
+		for uriRows.Next() {
+			var uri ds.Uri
+			err := uriRows.Scan(&uri.Match, &uri.Uri)
+			if err != nil {
+				return ciphers, err
+			}
+			uris = append(uris, uri)
+		}
+		cipher.Login.Uris = uris
+
+		fieldRows, err := db.db.Query("SELECT type, name, value FROM fields WHERE cipherId=$1", cipher.Id)
+		if err != nil {
+			return ciphers, err
+		}
+
+		var fields []ds.Field
+		for fieldRows.Next() {
+			var field ds.Field
+
+			err = fieldRows.Scan(&field.Type, &field.Name, &field.Value)
+			if err != nil {
+				return ciphers, err
+			}
+
+			fields = append(fields, field)
+		}
+
+		cipher.Fields = fields
+
+		makeNewCipher(&cipher)
+
+		ciphers[i] = cipher
+	}
+
+	return ciphers, nil
 }
 
 func (db *DB) GetFolders(accId string) ([]ds.Folder, error) {
@@ -86,163 +382,6 @@ func (db *DB) GetFolders(accId string) ([]ds.Folder, error) {
 		folders = make([]ds.Folder, 0)
 	}
 	return folders, err
-}
-
-func makeNewCipher(cipher *ds.Cipher) {
-	cipher.Card = nil
-	cipher.Fields = nil
-	cipher.Identity = nil
-	cipher.Name = cipher.Data.Name
-
-	// Set ciph.Data.Uris if it's not in the DB
-	if cipher.Data.Uri != nil && cipher.Data.Uris == nil {
-		cipher.Data.Uris = []ds.Uri{ds.Uri{
-			Uri:   cipher.Data.Uri,
-			Match: nil,
-		}}
-	}
-
-	if cipher.Data.Username != nil {
-		cipher.Login = ds.Login{
-			Username: cipher.Data.Username,
-			Totp:     cipher.Data.Totp,
-			Uri:      cipher.Data.Uri,
-			Uris:     cipher.Data.Uris,
-			Password: cipher.Data.Password,
-		}
-	}
-
-	cipher.Notes = cipher.Data.Notes
-	if cipher.Notes != nil {
-		cipher.SecureNote = ds.SecureNote{
-			Type: 0,
-		}
-	}
-}
-
-func row2cipher(row *sql.Rows) (ds.Cipher, error) {
-	cipher := ds.Cipher{
-		Favorite:            false,
-		Edit:                true,
-		OrganizationUseTotp: false,
-		Object:              "cipher",
-		Attachments:         nil,
-		FolderId:            nil,
-	}
-
-	var accId string
-	var favorite int
-	var revDate int64
-	var jsonData []byte
-	var folderId sql.NullString
-	err := row.Scan(&cipher.Id, &accId, &revDate, &cipher.Type, &folderId, &favorite, &jsonData)
-	if err != nil {
-		return cipher, err
-	}
-
-	// data 以外的字段手动构造
-	err = json.Unmarshal(jsonData, &cipher.Data)
-	if err != nil {
-		return cipher, err
-	}
-
-	if favorite == 1 {
-		cipher.Favorite = true
-	}
-
-	cipher.RevisionDate = time.Unix(revDate, 0)
-
-	if folderId.Valid {
-		cipher.FolderId = &folderId.String
-	}
-
-	makeNewCipher(&cipher)
-	return cipher, nil
-}
-
-func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
-	var ciphers []ds.Cipher
-
-	rows, err := db.db.Query("SELECT * FROM ciphers WHERE accountId=$1", accId)
-	if err != nil {
-		return ciphers, err
-	}
-
-	for rows.Next() {
-		var cipher ds.Cipher
-		cipher, err = row2cipher(rows)
-		if err != nil {
-			return ciphers, err
-		}
-
-		ciphers = append(ciphers, cipher)
-	}
-
-	return ciphers, nil
-}
-
-func (db *DB) DeleteCipher(accId, cipherId string) error {
-	stmt, err := db.db.Prepare("DELETE FROM ciphers WHERE id=$1 AND accountId=$2")
-	if err != nil {
-		return err
-	}
-
-	_, err = stmt.Exec(cipherId, accId)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (db *DB) UpdateCipher(cipher ds.Cipher, accId string, cipherId string) error {
-	favorite := 0
-	if cipher.Favorite {
-		favorite = 1
-	}
-
-	stmt, err := db.db.Prepare("UPDATE ciphers SET type=$1, revisionDate=$2, data=$3, folderId=$4, favorite=$5 WHERE id=$6 and accountId=$7")
-	if err != nil {
-		return err
-	}
-
-	jsonData, err := json.Marshal(&cipher.Data)
-	if err != nil {
-		return err
-	}
-
-	_, err = stmt.Exec(cipher.Type, time.Now().Unix(), jsonData, cipher.FolderId, favorite, cipherId, accId)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
-	cipher.RevisionDate = time.Now()
-
-	stmt, err := db.db.Prepare("INSERT INTO ciphers values(?, ?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		return cipher, err
-	}
-
-	// 字段太多，直接jsonify存起来
-	b, err := json.Marshal(&cipher.Data)
-	if err != nil {
-		return cipher, nil
-	}
-
-	cipherId := uuid.Must(uuid.NewRandom())
-
-	// TODO
-	_, err = stmt.Exec(cipherId, accId, cipher.RevisionDate.Unix(), cipher.Type, cipher.FolderId, 0, b)
-	if err != nil {
-		return cipher, err
-	}
-
-	makeNewCipher(&cipher)
-	return cipher, nil
 }
 
 func (db *DB) DeleteFolder(folderUUID string) error {
@@ -393,7 +532,7 @@ func (db *DB) Init() error {
 		}
 	}
 
-	for _, sql := range []string{accountTable, folderTable, cipherTable} {
+	for _, sql := range []string{accountTable, folderTable, cipherTable, loginTable, uriTable, fieldTable} {
 		if _, err := db.db.Exec(sql); err != nil {
 			return errors.New(fmt.Sprintf("Sql error with %s\n%s", sql, err.Error()))
 		}

@@ -17,7 +17,7 @@ type handler interface {
 	DeleteFolder(string) error
 	RenameFolder(string, string) (ds.Folder, error)
 	AddCipher(ds.Cipher, string) (ds.Cipher, error)
-	UpdateCipher(ds.Cipher, string, string) error
+	UpdateCipher(ds.Cipher, string) error
 	DeleteCipher(string, string) error
 
 	GetCiphers(string) ([]ds.Cipher, error)
@@ -33,9 +33,10 @@ type APIHandler struct {
 
 func New(db handler, key string, sugar *zap.SugaredLogger, favPort string) *APIHandler {
 	return &APIHandler{
-		db:                db,
-		signingKey:        key,
-		logger:            sugar,
+		db:         db,
+		signingKey: key,
+		logger:     sugar,
+		// TODO delete or change it to proxy server config
 		faviconServerPort: favPort,
 	}
 }

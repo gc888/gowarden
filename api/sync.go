@@ -16,10 +16,9 @@ func (apiHandler APIHandler) HandleSync(w http.ResponseWriter, r *http.Request) 
 		apiHandler.logger.Error(err)
 	}
 
-	// TODO: Profile, Folders, Ciphers, Domains
 	profile := acc.Profile()
 
-	// TODO cipher.data 在 database 中都是null
+	// FIXME
 	ciphers, err := apiHandler.db.GetCiphers(acc.Id)
 	if err != nil {
 		apiHandler.logger.Error(err)

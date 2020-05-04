@@ -64,10 +64,15 @@ func (acc Account) Profile() Profile {
 
 // structs about cipher
 type Cipher struct {
-	Type                int
-	FolderId            *string
-	OrganizationId      *string
-	Favorite            bool
+	Type           int
+	FolderId       string
+	OrganizationId string
+	Name           string
+	Notes          string
+	Favorite       bool
+	Login          Login
+	Fields         []Field
+
 	Edit                bool
 	Id                  string
 	Data                CipherData
@@ -76,42 +81,37 @@ type Cipher struct {
 	RevisionDate        time.Time
 	Object              string
 	CollectionIds       []string
-
-	Card       *string
-	Fields     []FieldsType
-	Identity   *string
-	Login      Login
-	Name       *string
-	Notes      *string
-	SecureNote SecureNote
+	Card                string
+	Identity            string
+	SecureNote          SecureNote
 }
 
 type CipherData struct {
-	Uri      *string
+	Uri      string
 	Username *string
-	Password *string
-	Totp     *string
-	Name     *string
-	Notes    *string
-	Fields   []FieldsType
+	Password string
+	Totp     string
+	Name     string
+	Notes    string
+	Fields   []Field
 	Uris     []Uri
 }
 
-type FieldsType struct {
+type Field struct {
 	Type  int
 	Name  string
 	Value string
 }
 
 type Uri struct {
-	Uri   *string
-	Match *int
+	Uri   string
+	Match int
 }
 
 type Login struct {
-	Password *string
-	Totp     *string
-	Uri      *string
+	Password string
+	Totp     string
+	Uri      string
 	Uris     []Uri
 	Username *string
 }
