@@ -26,7 +26,8 @@ type handler interface {
 	GetFolders(string) ([]ds.Folder, error)
 
 	AddAttachment(string, ds.Attachment) (ds.Cipher, error)
-	DeleteAttachment(string, string) error
+	DeleteAttachment(string, string) (string, error)
+	GetAttachment(string, string) (ds.Attachment, error)
 }
 
 type APIHandler struct {

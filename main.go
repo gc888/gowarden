@@ -124,8 +124,7 @@ func main() {
 	}
 	r.HandleFunc("/api/ciphers/{cipherId}/attachment", handler.AuthMiddleware(handler.HandleAddAttachment)).Methods(http.MethodPost)
 	r.HandleFunc("/api/ciphers/{cipherId}/attachment/{attachmentId}", handler.AuthMiddleware(handler.HandleDeleteAttachment)).Methods(http.MethodDelete)
-	// TODO download attachments
-	// r.HandleFunc("/api/ciphers/{cipherId}/attachment/{attachmentId}", handler.AuthMiddleware(handler.HandleGetAttachment)).Methods(http.MethodGet)
+	r.HandleFunc("/attachments/{cipherId}/{attachmentId}", handler.AuthMiddleware(handler.HandleGetAttachment)).Methods(http.MethodGet)
 
 	log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, r))
 }

@@ -103,7 +103,6 @@ func (db *DB) AddAttachment(cipherId string, attachment ds.Attachment) (ds.Ciphe
 		return cipher, err
 	}
 
-	attachment.Id = uuid.Must(uuid.NewRandom()).String()
 	attachment.Object = "attachment"
 	attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
 
@@ -122,18 +121,40 @@ func (db *DB) AddAttachment(cipherId string, attachment ds.Attachment) (ds.Ciphe
 	return cipher, nil
 }
 
-func (db *DB) DeleteAttachment(cipherId, attachmentId string) error {
+func (db *DB) DeleteAttachment(cipherId, attachmentId string) (url string, err error) {
+	url, err = getAttachmentUrl(db.db, cipherId, attachmentId)
 	stmt, err := db.db.Prepare("DELETE FROM attachments WHERE id=$1 AND cipherID=$2")
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	_, err = stmt.Exec(attachmentId, cipherId)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return url, nil
+}
+
+func getAttachmentUrl(db *sql.DB, cipherId, attachmentId string) (url string, err error) {
+	err = db.QueryRow("SELECT url FROM attachments WHERE id=$1 AND cipherId=$2", attachmentId, cipherId).Scan(&url)
+	return url, err
+}
+
+// TODO get all fields or just url, wait to test
+func (db *DB) GetAttachment(cipherId, attachmentId string) (ds.Attachment, error) {
+	var attachment ds.Attachment
+
+	err := db.db.QueryRow("SELECT id, filename, key, size, url FROM attachments WHERE cipherId=$1", cipherId).Scan(
+		&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
+	if err != nil {
+		return attachment, err
+	}
+
+	attachment.Object = "attachment"
+	attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
+
+	return attachment, nil
 }
 
 // TODO code about attachment in this function
