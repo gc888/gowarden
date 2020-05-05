@@ -22,8 +22,7 @@ func (apiHandler APIHandler) HandleFavicon(w http.ResponseWriter, r *http.Reques
 	_, err := os.Stat(iconFile)
 	if err != nil {
 		apiHandler.logger.Info("Didn't find icon, try to download.")
-		// TODO make proxy configurable
-		proxyUrl, err := url.Parse("http://127.0.0.1:7890")
+		proxyUrl, err := url.Parse(apiHandler.proxyServer)
 		if err != nil {
 			apiHandler.logger.Error(err)
 			return
@@ -38,7 +37,6 @@ func (apiHandler APIHandler) HandleFavicon(w http.ResponseWriter, r *http.Reques
 		}
 		url := faviconApi + domain
 
-		// TODO delete
 		apiHandler.logger.Info("Try to access : " + url)
 
 		req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -121,7 +119,6 @@ func (apiHandler APIHandler) HandleFavicon(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// TODO delete
 	apiHandler.logger.Info("Find icon: " + iconFile)
 
 	_, err = io.Copy(w, f)

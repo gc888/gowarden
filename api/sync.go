@@ -18,7 +18,6 @@ func (apiHandler APIHandler) HandleSync(w http.ResponseWriter, r *http.Request) 
 
 	profile := acc.Profile()
 
-	// FIXME
 	ciphers, err := apiHandler.db.GetCiphers(acc.Id)
 	if err != nil {
 		apiHandler.logger.Error(err)

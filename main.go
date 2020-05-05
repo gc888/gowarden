@@ -22,7 +22,7 @@ var gowarden struct {
 	logLevel            string
 	logPath             string
 	disableFavicon      bool
-	faviconServerPort   string
+	faviconProxyServer  string
 }
 
 func init() {
@@ -35,7 +35,8 @@ func init() {
 	flag.StringVar(&gowarden.logLevel, "loglevel", "Info", "Set log level.")
 	flag.StringVar(&gowarden.logPath, "logpath", "", "Set log path.")
 	flag.BoolVar(&gowarden.disableFavicon, "disableFavicon", false, "Disable favicon server.")
-	flag.StringVar(&gowarden.faviconServerPort, "faviconServerPort", "9528", "Set favicon server port.")
+	// TODO change default to empty.
+	flag.StringVar(&gowarden.faviconProxyServer, "faviconProxyServer", "http://127.0.0.1:7890", "Set favicon's proxy server.")
 }
 
 func isDir(path string) bool {
@@ -66,20 +67,21 @@ func main() {
 	defer db.Close()
 
 	// just for test TODO delete
-	//gowarden.initDB = true
+	// gowarden.initDB = true
 
 	if gowarden.initDB {
-		sugar.Info("Try to initalize sqlite ...")
+		// TODO delete icon and attachment folders
+		sugar.Info("Try to initialize sqlite ...")
 		err := db.Init()
 		if err != nil {
 			logrus.Fatal(err)
 			return
 		}
-		sugar.Info("Database initalized.")
+		sugar.Info("Database initialized.")
 	}
 
 	r := mux.NewRouter()
-	handler := api.New(db, gowarden.secretKey, sugar, gowarden.faviconServerPort)
+	handler := api.New(db, gowarden.secretKey, sugar, gowarden.faviconProxyServer)
 
 	if !gowarden.disableRegistration {
 		r.HandleFunc("/api/accounts/register", handler.HandleRegister)
@@ -90,7 +92,6 @@ func main() {
 
 	// Must login can access these api.
 	r.HandleFunc("/api/accounts/keys", handler.AuthMiddleware(handler.HandleAccountKeys))
-	// TODO
 	r.HandleFunc("/api/sync", handler.AuthMiddleware(handler.HandleSync)).Methods(http.MethodGet)
 	r.HandleFunc("/notifications/hub/negotiate", handler.AuthMiddleware(handler.HandleNegotiate))
 	r.HandleFunc("/api/ciphers", handler.AuthMiddleware(handler.HandleCiphers)).Methods(http.MethodPost)
@@ -112,6 +113,19 @@ func main() {
 		}
 		r.HandleFunc("/icons/{domain}/{icon}", handler.HandleFavicon).Methods(http.MethodGet)
 	}
+
+	if !isDir("attachments") {
+		sugar.Info("Didn't find attachments's folder, try to create ...")
+		err = os.Mkdir("attachments", os.ModePerm)
+		if err != nil {
+			sugar.Error(err)
+		}
+		sugar.Info("Success to create attachments folder.")
+	}
+	r.HandleFunc("/api/ciphers/{cipherId}/attachment", handler.AuthMiddleware(handler.HandleAddAttachment)).Methods(http.MethodPost)
+	r.HandleFunc("/api/ciphers/{cipherId}/attachment/{attachmentId}", handler.AuthMiddleware(handler.HandleDeleteAttachment)).Methods(http.MethodDelete)
+	// TODO download attachments
+	// r.HandleFunc("/api/ciphers/{cipherId}/attachment/{attachmentId}", handler.AuthMiddleware(handler.HandleGetAttachment)).Methods(http.MethodGet)
 
 	log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, r))
 }

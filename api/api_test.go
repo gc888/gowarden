@@ -37,8 +37,6 @@ func tearDown() {
 }
 
 func TestHandleLogin(t *testing.T) {
-	// TODO test login
-	// TODO test refresh token
 }
 
 func TestHandlePrelogin(t *testing.T) {

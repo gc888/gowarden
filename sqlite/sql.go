@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 
 	"regexp"
 
@@ -74,6 +75,15 @@ const (
 						value TEXT,
                         PRIMARY KEY(id)
                     )`
+	attachmentTable = `CREATE TABLE IF NOT EXISTS "attachments" (
+                        id TEXT,
+                        cipherId TEXT,
+						filename TEXT,
+						key Text,
+						size Text,
+						url TEXT,
+                        PRIMARY KEY(id)
+                    )`
 )
 
 // FIXME uri and fields in databse is empty
@@ -85,6 +95,124 @@ type DB struct {
 
 func New() *DB {
 	return &DB{}
+}
+
+func (db *DB) AddAttachment(cipherId string, attachment ds.Attachment) (ds.Cipher, error) {
+	cipher, err := getCipher(db.db, cipherId)
+	if err != nil {
+		return cipher, err
+	}
+
+	attachment.Id = uuid.Must(uuid.NewRandom()).String()
+	attachment.Object = "attachment"
+	attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
+
+	stmt, err := db.db.Prepare("INSERT INTO attachments VALUES(?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return cipher, err
+	}
+
+	_, err = stmt.Exec(attachment.Id, cipherId, attachment.FileName, attachment.Key, attachment.Size, attachment.Url)
+	if err != nil {
+		return cipher, err
+	}
+
+	cipher.Attachments = append(cipher.Attachments, attachment)
+
+	return cipher, nil
+}
+
+func (db *DB) DeleteAttachment(cipherId, attachmentId string) error {
+	stmt, err := db.db.Prepare("DELETE FROM attachments WHERE id=$1 AND cipherID=$2")
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(attachmentId, cipherId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TODO code about attachment in this function
+func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
+	var cipher ds.Cipher
+	var revDate int64
+	var favorite int
+
+	cipher.Id = cipherId
+
+	db.QueryRow("SELECT revisionDate, type, folderId, favorite, name, notes FROM ciphere WHERE id=$1", cipherId).Scan(
+		&revDate, &cipher.Type, &cipher.FolderId, &favorite, &cipher.Name, &cipher.Notes)
+
+	cipher.RevisionDate = time.Unix(revDate, 0)
+	if favorite == 1 {
+		cipher.Favorite = true
+	}
+
+	loginRow := db.QueryRow("SELECT username, password, totp FROM logins WHERE cipherId=$1", cipher.Id)
+
+	err := loginRow.Scan(&cipher.Login.Username, &cipher.Login.Password, &cipher.Login.Totp)
+	if err != nil {
+		return cipher, err
+	}
+
+	uriRows, err := db.Query("SELECT match, uri FROM uris WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+	var uris []ds.Uri
+	for uriRows.Next() {
+		var uri ds.Uri
+		err := uriRows.Scan(&uri.Match, &uri.Uri)
+		if err != nil {
+			return cipher, err
+		}
+		uris = append(uris, uri)
+	}
+	cipher.Login.Uris = uris
+
+	fieldRows, err := db.Query("SELECT type, name, value FROM fields WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+
+	var fields []ds.Field
+	for fieldRows.Next() {
+		var field ds.Field
+
+		err = fieldRows.Scan(&field.Type, &field.Name, &field.Value)
+		if err != nil {
+			return cipher, err
+		}
+
+		fields = append(fields, field)
+	}
+
+	cipher.Fields = fields
+
+	attachmentRows, err := db.Query("SELECT id, filename, key, size, url FROM attachments WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+	var attachments []ds.Attachment
+	for attachmentRows.Next() {
+		var attachment ds.Attachment
+		err = attachmentRows.Scan(&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
+		if err != nil {
+			return cipher, nil
+		}
+		attachment.Object = "attachment"
+		attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
+		attachments = append(attachments, attachment)
+	}
+	cipher.Attachments = attachments
+
+	makeNewCipher(&cipher)
+
+	return cipher, nil
 }
 
 func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
@@ -205,6 +333,15 @@ func (db *DB) DeleteCipher(accId, cipherId string) error {
 	}
 
 	_, err = fieldStmt.Exec(cipherId)
+	if err != nil {
+		return err
+	}
+
+	attachmentStmt, err := db.db.Prepare("DELETE FROM attachments WHERE cipherId=$1")
+	if err != nil {
+		return err
+	}
+	_, err = attachmentStmt.Exec(cipherId)
 	if err != nil {
 		return err
 	}
@@ -345,8 +482,24 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 
 			fields = append(fields, field)
 		}
-
 		cipher.Fields = fields
+
+		attachmentRows, err := db.db.Query("SELECT id, filename, key, size, url FROM attachments WHERE cipherId=$1", cipher.Id)
+		if err != nil {
+			return ciphers, err
+		}
+		var attachments []ds.Attachment
+		for attachmentRows.Next() {
+			var attachment ds.Attachment
+			err = attachmentRows.Scan(&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
+			if err != nil {
+				return ciphers, nil
+			}
+			attachment.Object = "attachment"
+			attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
+			attachments = append(attachments, attachment)
+		}
+		cipher.Attachments = attachments
 
 		makeNewCipher(&cipher)
 
@@ -464,7 +617,6 @@ func (db *DB) GetAccount(s string) (ds.Account, error) {
 
 	var validEmail = regexp.MustCompile(`(\w[-._\w]*\w@\w[-._\w]*\w\.\w{2,3})`)
 
-	// TODO test
 	if validEmail.MatchString(s) {
 		// Get account from email.
 		err := db.db.QueryRow("SELECT * FROM accounts WHERE email=?", s).Scan(&acc.Id, &acc.Name, &acc.Email, &acc.MasterPasswordHash, &acc.MasterPasswordHint, &acc.Key, &acc.KdfIterations, &acc.Keys.PublicKey, &acc.Keys.EncryptedPrivateKey, &acc.RefreshToken)
@@ -532,7 +684,7 @@ func (db *DB) Init() error {
 		}
 	}
 
-	for _, sql := range []string{accountTable, folderTable, cipherTable, loginTable, uriTable, fieldTable} {
+	for _, sql := range []string{accountTable, folderTable, cipherTable, loginTable, uriTable, fieldTable, attachmentTable} {
 		if _, err := db.db.Exec(sql); err != nil {
 			return errors.New(fmt.Sprintf("Sql error with %s\n%s", sql, err.Error()))
 		}

@@ -32,7 +32,7 @@ func (apiHandler *APIHandler) AuthMiddleware(h http.HandlerFunc) http.HandlerFun
 		})
 
 		if nil != err {
-			apiHandler.logger.Error("JWT token parse error.")
+			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 			return

@@ -29,6 +29,9 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		if len(refreshToken) != 32 {
 			// TODO length 44, base64 encoded
 			apiHandler.logger.Errorf("Bad token length: %v", len(refreshToken))
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+			return
 		}
 
 		acc, err := apiHandler.db.GetAccount(refreshToken)

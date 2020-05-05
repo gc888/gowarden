@@ -76,7 +76,7 @@ type Cipher struct {
 	Edit                bool
 	Id                  string
 	Data                CipherData
-	Attachments         []string
+	Attachments         []Attachment
 	OrganizationUseTotp bool
 	RevisionDate        time.Time
 	Object              string
@@ -84,6 +84,16 @@ type Cipher struct {
 	Card                string
 	Identity            string
 	SecureNote          SecureNote
+}
+
+type Attachment struct {
+	FileName string
+	Id       string
+	Key      string
+	Object   string
+	Size     int64
+	SizeName string
+	Url      string
 }
 
 type CipherData struct {

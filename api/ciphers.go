@@ -122,7 +122,6 @@ func (apiHandler *APIHandler) HandleDeleteCiphers(w http.ResponseWriter, r *http
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	// TODO w.Write
 	apiHandler.logger.Infof("Cipher %v deleted.", cipherId)
 	return
 }
