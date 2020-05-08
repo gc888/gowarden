@@ -19,7 +19,7 @@ type handler interface {
 	RenameFolder(string, string) (ds.Folder, error)
 
 	AddCipher(ds.Cipher, string) (ds.Cipher, error)
-	UpdateCipher(ds.Cipher, string) error
+	UpdateCipher(ds.Cipher, string) (ds.Cipher, error)
 	DeleteCipher(string, string) error
 
 	GetCiphers(string) ([]ds.Cipher, error)

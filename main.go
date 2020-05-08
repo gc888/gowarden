@@ -23,6 +23,9 @@ var gowarden struct {
 	logPath             string
 	disableFavicon      bool
 	faviconProxyServer  string
+	enableHttps         bool
+	cert                string
+	key                 string
 }
 
 func init() {
@@ -31,12 +34,15 @@ func init() {
 	flag.StringVar(&gowarden.dir, "d", "", "Set the directory.")
 	flag.StringVar(&gowarden.port, "p", "9527", "Set the Port.")
 	flag.BoolVar(&gowarden.disableRegistration, "disableRegistration", false, "Disable registration.")
-	flag.StringVar(&gowarden.secretKey, "key", "secret", "Use to encrypt jwt string.")
+	flag.StringVar(&gowarden.secretKey, "secertKey", "secret", "Use to encrypt jwt string.")
 	flag.StringVar(&gowarden.logLevel, "loglevel", "Info", "Set log level.")
 	flag.StringVar(&gowarden.logPath, "logpath", "", "Set log path.")
 	flag.BoolVar(&gowarden.disableFavicon, "disableFavicon", false, "Disable favicon server.")
 	// TODO change default to empty.
 	flag.StringVar(&gowarden.faviconProxyServer, "faviconProxyServer", "http://127.0.0.1:7890", "Set favicon's proxy server.")
+	flag.BoolVar(&gowarden.enableHttps, "enableHttps", false, "Set true to enable https.")
+	flag.StringVar(&gowarden.cert, "certFile", "", "Path to cert.pem file")
+	flag.StringVar(&gowarden.key, "keyFile", "", "Path to key.pem file.")
 }
 
 func isDir(path string) bool {
@@ -124,7 +130,12 @@ func main() {
 	}
 	r.HandleFunc("/api/ciphers/{cipherId}/attachment", handler.AuthMiddleware(handler.HandleAddAttachment)).Methods(http.MethodPost)
 	r.HandleFunc("/api/ciphers/{cipherId}/attachment/{attachmentId}", handler.AuthMiddleware(handler.HandleDeleteAttachment)).Methods(http.MethodDelete)
-	r.HandleFunc("/attachments/{cipherId}/{attachmentId}", handler.AuthMiddleware(handler.HandleGetAttachment)).Methods(http.MethodGet)
+	// FIXME don't know api endpoint
+	r.HandleFunc("/attachments/{cipherId}/{attachmentId}", handler.HandleGetAttachment).Methods(http.MethodGet)
 
-	log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, r))
+	if gowarden.enableHttps {
+		log.Fatal(http.ListenAndServeTLS("127.0.0.1"+gowarden.port, gowarden.cert, gowarden.key, r))
+	} else {
+		log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, r))
+	}
 }

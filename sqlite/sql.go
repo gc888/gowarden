@@ -50,13 +50,12 @@ const (
 						notes TEXT,
                         PRIMARY KEY(id)
                     )`
-	// TODO how to handle totp
 	loginTable = `CREATE TABLE IF NOT EXISTS "logins" (
                         id TEXT,
                         cipherId TEXT,
 						username TEXT,
 						password TEXT,
- 						totp INTEGER,
+ 						totp TEXT,
                         PRIMARY KEY(id)
                     )`
 
@@ -86,8 +85,6 @@ const (
                     )`
 )
 
-// FIXME uri and fields in databse is empty
-
 type DB struct {
 	db  *sql.DB
 	dir string
@@ -104,7 +101,11 @@ func (db *DB) AddAttachment(cipherId string, attachment ds.Attachment) (ds.Ciphe
 	}
 
 	attachment.Object = "attachment"
-	attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
+	size, err := strconv.Atoi(attachment.Size)
+	if err != nil {
+		return cipher, err
+	}
+	attachment.SizeName = strconv.FormatInt(int64(size>>10), 10) + " KB"
 
 	stmt, err := db.db.Prepare("INSERT INTO attachments VALUES(?, ?, ?, ?, ?, ?)")
 	if err != nil {
@@ -141,7 +142,6 @@ func getAttachmentUrl(db *sql.DB, cipherId, attachmentId string) (url string, er
 	return url, err
 }
 
-// TODO get all fields or just url, wait to test
 func (db *DB) GetAttachment(cipherId, attachmentId string) (ds.Attachment, error) {
 	var attachment ds.Attachment
 
@@ -152,12 +152,45 @@ func (db *DB) GetAttachment(cipherId, attachmentId string) (ds.Attachment, error
 	}
 
 	attachment.Object = "attachment"
-	attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
+	size, err := strconv.Atoi(attachment.Size)
+	if err != nil {
+		return attachment, err
+	}
+	attachment.SizeName = strconv.FormatInt(int64(size>>10), 10) + " KB"
 
 	return attachment, nil
 }
 
-// TODO code about attachment in this function
+func getAttachments(db *DB, cipherId string) ([]ds.Attachment, error) {
+	var attachments []ds.Attachment
+
+	rows, err := db.db.Query("SELECT id, filename, key, size, url FROM attachments WHERE cipherId=$1", cipherId)
+	if err != nil {
+		return attachments, err
+	}
+
+	for rows.Next() {
+		var attachment ds.Attachment
+
+		err = rows.Scan(&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
+		if err != nil {
+			return attachments, err
+		}
+
+		makeNewAttachment(&attachment)
+
+		attachments = append(attachments, attachment)
+	}
+
+	return attachments, nil
+}
+
+func makeNewAttachment(attachment *ds.Attachment) {
+	attachment.Object = "attachment"
+	size, _ := strconv.Atoi(attachment.Size)
+	attachment.SizeName = strconv.FormatInt(int64(size>>10), 10) + " KB"
+}
+
 func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 	var cipher ds.Cipher
 	var revDate int64
@@ -223,10 +256,14 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 		var attachment ds.Attachment
 		err = attachmentRows.Scan(&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
 		if err != nil {
-			return cipher, nil
+			return cipher, err
 		}
 		attachment.Object = "attachment"
-		attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
+		size, err := strconv.Atoi(attachment.Size)
+		if err != nil {
+			return cipher, err
+		}
+		attachment.SizeName = strconv.FormatInt(int64(size>>10), 10) + " KB"
 		attachments = append(attachments, attachment)
 	}
 	cipher.Attachments = attachments
@@ -370,8 +407,9 @@ func (db *DB) DeleteCipher(accId, cipherId string) error {
 	return nil
 }
 
-func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) error {
-	now := time.Now()
+// FIXME
+func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
+	cipher.RevisionDate = time.Now()
 	favorite := 0
 	if cipher.Favorite {
 		favorite = 1
@@ -379,57 +417,63 @@ func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) error {
 
 	cipherStmt, err := db.db.Prepare("UPDATE ciphers SET revisionDate=$1, type=$2, folderId=$3, favorite=$4, name=$5, notes=$6 WHERE id=$7 AND accountId=$8")
 	if err != nil {
-		return err
+		return cipher, err
 	}
 
-	_, err = cipherStmt.Exec(now.Unix(), cipher.Type, cipher.FolderId, favorite, cipher.Name, cipher.Notes, cipher.Id, accId)
+	_, err = cipherStmt.Exec(cipher.RevisionDate.Unix(), cipher.Type, cipher.FolderId, favorite, cipher.Name, cipher.Notes, cipher.Id, accId)
 	if err != nil {
-		return err
+		return cipher, err
 	}
 
 	loginStmt, err := db.db.Prepare("UPDATE logins SET username=$1, password=$2, totp=$3 WHERE cipherId=$4")
 	if err != nil {
-		return err
+		return cipher, err
 	}
 
 	_, err = loginStmt.Exec(cipher.Login.Username, cipher.Login.Password, cipher.Login.Totp, cipher.Id)
 	if err != nil {
-		return err
+		return cipher, err
 	}
 
+	// TODO maybe delete all fields except id is a better way
 	_, err = db.db.Exec("DELETE FROM uris WHERE cipherId=$1", cipher.Id)
 	if err != nil {
-		return err
+		return cipher, err
 	}
 	uriStmt, err := db.db.Prepare("INSERT INTO uris VALUES (?, ?, ? ,?)")
 	if err != nil {
-		return err
+		return cipher, err
 	}
 
 	for _, uri := range cipher.Login.Uris {
 		_, err = uriStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, uri.Match, uri.Uri)
 		if err != nil {
-			return err
+			return cipher, err
 		}
 	}
 
 	_, err = db.db.Exec("DELETE FROM fields WHERE cipherId=$1", cipher.Id)
 	if err != nil {
-		return err
+		return cipher, err
 	}
 	fieldStmt, err := db.db.Prepare("INSERT INTO fields VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
-		return err
+		return cipher, err
 	}
 
 	for _, field := range cipher.Fields {
 		_, err = fieldStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, field.Type, field.Name, field.Value)
 		if err != nil {
-			return err
+			return cipher, err
 		}
 	}
 
-	return nil
+	cipher.Attachments, err = getAttachments(db, cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+
+	return cipher, nil
 }
 
 func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
@@ -514,10 +558,14 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 			var attachment ds.Attachment
 			err = attachmentRows.Scan(&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
 			if err != nil {
-				return ciphers, nil
+				return ciphers, err
 			}
 			attachment.Object = "attachment"
-			attachment.SizeName = strconv.FormatInt(attachment.Size>>10, 10) + " KB"
+			size, err := strconv.Atoi(attachment.Size)
+			if err != nil {
+				return ciphers, err
+			}
+			attachment.SizeName = strconv.FormatInt(int64(size>>10), 10) + " KB"
 			attachments = append(attachments, attachment)
 		}
 		cipher.Attachments = attachments

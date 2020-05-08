@@ -86,12 +86,27 @@ type Cipher struct {
 	SecureNote          SecureNote
 }
 
+// TODO maybe delete
+type CipherForUpdate struct {
+	Type           int
+	FolderId       string
+	OrganizationId string
+	Name           string
+	Notes          string
+	Favorite       bool
+	Login          Login
+	Fields         []Field
+
+	Attachments  map[string]string
+	Attachments2 map[string]Attachment
+}
+
 type Attachment struct {
 	FileName string
 	Id       string
 	Key      string
 	Object   string
-	Size     int64
+	Size     string
 	SizeName string
 	Url      string
 }

@@ -9,6 +9,82 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
+func (apiHandler *APIHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
+
+}
+
+// Update account's keys.
+func (apiHandler *APIHandler) HandleAccountKeys(w http.ResponseWriter, r *http.Request) {
+	var keys ds.Keys
+	err := json.NewDecoder(r.Body).Decode(&keys)
+	defer r.Body.Close()
+	if nil != err {
+		apiHandler.logger.Error("Failed to decode request body.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+
+	email := getEmailRctx(r)
+
+	acc, err := apiHandler.db.GetAccount(email)
+	if nil != err {
+		apiHandler.logger.Errorf("Failed to get account with %v", email)
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+
+	acc.Keys = keys
+	apiHandler.db.UpdateAccount(acc)
+}
+
+func (apiHandler *APIHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
+	var acc ds.Account
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+	err := decoder.Decode(&acc)
+	if err != nil {
+		apiHandler.logger.Error("Failed to decode json.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+
+	if acc.KdfIterations < 5000 || acc.KdfIterations > 100000 {
+		apiHandler.logger.Error("Bad kdf iterations.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+
+	apiHandler.logger.Info(acc.Email + " is trying to register.")
+
+	acc.MasterPasswordHash, err = makeKey(acc.MasterPasswordHash, acc.Email, acc.KdfIterations)
+	if err != nil {
+		apiHandler.logger.Error("Failed to generate key.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(500)))
+		return
+	}
+
+	err = apiHandler.db.AddAccount(acc)
+	if err != nil {
+		apiHandler.logger.Error("Failed to get account.")
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(500)))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // Handle login and refresh token.
 // TODO refresh token timeout return 401.
 func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
