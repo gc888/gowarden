@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/404cn/gowarden/utils"
 	"os"
 	"path"
 	"strconv"
@@ -83,7 +84,43 @@ const (
 						url TEXT,
                         PRIMARY KEY(id)
                     )`
+	cardTable = `CREATE TABLE IF NOT EXISTS "cards" (
+                        id TEXT,
+                        cipherId TEXT,
+						cardholdername TEXT,
+						brand TEXT,
+						number TEXT,
+						expmonth TEXT,
+						expyear TEXT,
+						code TEXT,
+                        PRIMARY KEY(id)
+                    )`
+	identityTable = `CREATE TABLE IF NOT EXISTS "identities" (
+                        id TEXT,
+                        cipherId TEXT,
+						title TEXT,
+						firstname TEXT,
+						middlename TEXT,
+						lastname TEXT,
+						address1 TEXT,
+						address2 TEXT,
+						address3 TEXT,
+						city TEXT,
+						state TEXT,
+						postalcode TEXT,
+						country TEXT,
+						company TEXT,
+						email TEXT,
+						phone TEXT,
+						ssn TEXT,
+						username TEXT,
+						passportnumber TEXT,
+						licensenumber TEXT,
+                        PRIMARY KEY(id)
+                    )`
 )
+
+// FIXME ssn, cardholdername didn't save
 
 type DB struct {
 	db  *sql.DB
@@ -92,6 +129,12 @@ type DB struct {
 
 func New() *DB {
 	return &DB{}
+}
+
+// TODO
+func (db *DB) SaveCSV(csvs []ds.CSV) error {
+
+	return nil
 }
 
 func (db *DB) AddAttachment(cipherId string, attachment ds.Attachment) (ds.Cipher, error) {
@@ -191,88 +234,6 @@ func makeNewAttachment(attachment *ds.Attachment) {
 	attachment.SizeName = strconv.FormatInt(int64(size>>10), 10) + " KB"
 }
 
-func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
-	var cipher ds.Cipher
-	var revDate int64
-	var favorite int
-
-	cipher.Id = cipherId
-
-	db.QueryRow("SELECT revisionDate, type, folderId, favorite, name, notes FROM ciphere WHERE id=$1", cipherId).Scan(
-		&revDate, &cipher.Type, &cipher.FolderId, &favorite, &cipher.Name, &cipher.Notes)
-
-	cipher.RevisionDate = time.Unix(revDate, 0)
-	if favorite == 1 {
-		cipher.Favorite = true
-	}
-
-	loginRow := db.QueryRow("SELECT username, password, totp FROM logins WHERE cipherId=$1", cipher.Id)
-
-	err := loginRow.Scan(&cipher.Login.Username, &cipher.Login.Password, &cipher.Login.Totp)
-	if err != nil {
-		return cipher, err
-	}
-
-	uriRows, err := db.Query("SELECT match, uri FROM uris WHERE cipherId=$1", cipher.Id)
-	if err != nil {
-		return cipher, err
-	}
-	var uris []ds.Uri
-	for uriRows.Next() {
-		var uri ds.Uri
-		err := uriRows.Scan(&uri.Match, &uri.Uri)
-		if err != nil {
-			return cipher, err
-		}
-		uris = append(uris, uri)
-	}
-	cipher.Login.Uris = uris
-
-	fieldRows, err := db.Query("SELECT type, name, value FROM fields WHERE cipherId=$1", cipher.Id)
-	if err != nil {
-		return cipher, err
-	}
-
-	var fields []ds.Field
-	for fieldRows.Next() {
-		var field ds.Field
-
-		err = fieldRows.Scan(&field.Type, &field.Name, &field.Value)
-		if err != nil {
-			return cipher, err
-		}
-
-		fields = append(fields, field)
-	}
-
-	cipher.Fields = fields
-
-	attachmentRows, err := db.Query("SELECT id, filename, key, size, url FROM attachments WHERE cipherId=$1", cipher.Id)
-	if err != nil {
-		return cipher, err
-	}
-	var attachments []ds.Attachment
-	for attachmentRows.Next() {
-		var attachment ds.Attachment
-		err = attachmentRows.Scan(&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
-		if err != nil {
-			return cipher, err
-		}
-		attachment.Object = "attachment"
-		size, err := strconv.Atoi(attachment.Size)
-		if err != nil {
-			return cipher, err
-		}
-		attachment.SizeName = strconv.FormatInt(int64(size>>10), 10) + " KB"
-		attachments = append(attachments, attachment)
-	}
-	cipher.Attachments = attachments
-
-	makeNewCipher(&cipher)
-
-	return cipher, nil
-}
-
 func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 	cipher.Id = uuid.Must(uuid.NewRandom()).String()
 	cipher.RevisionDate = time.Now()
@@ -327,31 +288,47 @@ func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		}
 	}
 
+	cardStmt, err := db.db.Prepare("INSERT INTO cards VALUES(?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return cipher, err
+	}
+	_, err = cardStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Card.CardHolderName, cipher.Card.Brand, cipher.Card.Number, cipher.Card.ExpMonth, cipher.Card.ExpYear, cipher.Card.Code)
+	if err != nil {
+		return cipher, err
+	}
+
+	identityStmt, err := db.db.Prepare("INSERT INTO identities VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,? ,?,?,?,?,?,?)")
+	if err != nil {
+		return cipher, err
+	}
+	_, err = identityStmt.Exec(
+		uuid.Must(uuid.NewRandom()).String(),
+		cipher.Id,
+		cipher.Identity.Title,
+		cipher.Identity.FirstName,
+		cipher.Identity.MiddleName,
+		cipher.Identity.LastName,
+		cipher.Identity.Address1,
+		cipher.Identity.Address2,
+		cipher.Identity.Address3,
+		cipher.Identity.City,
+		cipher.Identity.State,
+		cipher.Identity.PostalCode,
+		cipher.Identity.Country,
+		cipher.Identity.Company,
+		cipher.Identity.Email,
+		cipher.Identity.Phone,
+		cipher.Identity.Ssn,
+		cipher.Identity.Username,
+		cipher.Identity.PassportNumber,
+		cipher.Identity.LicenseNumber,
+	)
+	if err != nil {
+		return cipher, err
+	}
+
 	makeNewCipher(&cipher)
 	return cipher, nil
-}
-
-func makeNewCipher(cipher *ds.Cipher) {
-	cipher.Object = "cipher"
-	cipher.Edit = true
-
-	if cipher.Login.Uris != nil {
-		cipher.Login.Uri, cipher.Data.Uri = cipher.Login.Uris[0].Uri, cipher.Login.Uris[0].Uri
-	}
-
-	// 只有object为login时
-	if cipher.Login.Username != nil {
-		cipher.Data = ds.CipherData{
-			Username: cipher.Login.Username,
-			Password: cipher.Login.Password,
-			Totp:     cipher.Login.Totp,
-			Name:     cipher.Name,
-			Notes:    cipher.Notes,
-			Fields:   cipher.Fields,
-			Uris:     cipher.Login.Uris,
-		}
-	}
-
 }
 
 func (db *DB) DeleteCipher(accId, cipherId string) error {
@@ -404,10 +381,23 @@ func (db *DB) DeleteCipher(accId, cipherId string) error {
 		return err
 	}
 
+	cardStmt, err := db.db.Prepare("DELETE FROM cards WHERE cipherId=$1")
+	if err != nil {
+		return err
+	}
+	_, err = cardStmt.Exec(cipherId)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.db.Exec("DELETE FROM identities WHERE cipherId=$1", cipherId)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// FIXME
 func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 	cipher.RevisionDate = time.Now()
 	favorite := 0
@@ -435,7 +425,6 @@ func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		return cipher, err
 	}
 
-	// TODO maybe delete all fields except id is a better way
 	_, err = db.db.Exec("DELETE FROM uris WHERE cipherId=$1", cipher.Id)
 	if err != nil {
 		return cipher, err
@@ -469,6 +458,41 @@ func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 	}
 
 	cipher.Attachments, err = getAttachments(db, cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+
+	// FIXME 更新后数据没了
+	cardStmt, err := db.db.Prepare("UPDATE cards SET cardholdername=$1, brand=$2, number=$3, expmonth=$4, expyear=$5, code=$6 WHERE cipherId=$7")
+	if err != nil {
+		return cipher, err
+	}
+	_, err = cardStmt.Exec(cipher.Card.CardHolderName, cipher.Card.Brand, cipher.Card.Number, cipher.Card.ExpMonth, cipher.Card.ExpYear, cipher.Card.Code, cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+
+	// FIXME
+	_, err = db.db.Exec("UPDATE identities SET title=$1, firstname=$2, middlename=$3, lastname=$4, address1=$5, address2=$6, address3=$7, city=$8, state=$9, postalcode=$10, country=$11, company=$12, email=$13, phone=$14, ssn=$15, username=$16, passportnumber=$17, licensenumber=$18 WHERE cipherId=$19",
+		cipher.Identity.Title,
+		cipher.Identity.FirstName,
+		cipher.Identity.MiddleName,
+		cipher.Identity.LastName,
+		cipher.Identity.Address1,
+		cipher.Identity.Address2,
+		cipher.Identity.Address3,
+		cipher.Identity.City,
+		cipher.Identity.State,
+		cipher.Identity.PostalCode,
+		cipher.Identity.Country,
+		cipher.Identity.Company,
+		cipher.Identity.Email,
+		cipher.Identity.Phone,
+		cipher.Identity.Ssn,
+		cipher.Identity.Username,
+		cipher.Identity.PassportNumber,
+		cipher.Identity.LicenseNumber,
+		cipher.Id)
 	if err != nil {
 		return cipher, err
 	}
@@ -570,12 +594,189 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 		}
 		cipher.Attachments = attachments
 
+		cardRow := db.db.QueryRow("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id)
+		err = cardRow.Scan(&cipher.Card.CardHolderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
+		if err != nil {
+			return ciphers, err
+		}
+
+		identityRow := db.db.QueryRow("SELECT * FROM identities WHERE cipherId=$1", cipher.Id)
+		var foo, bar string
+		err = identityRow.Scan(
+			&foo,
+			&bar,
+			&cipher.Identity.Title,
+			&cipher.Identity.FirstName,
+			&cipher.Identity.MiddleName,
+			&cipher.Identity.LastName,
+			&cipher.Identity.Address1,
+			&cipher.Identity.Address2,
+			&cipher.Identity.Address3,
+			&cipher.Identity.City,
+			&cipher.Identity.State,
+			&cipher.Identity.PostalCode,
+			&cipher.Identity.Country,
+			&cipher.Identity.Company,
+			&cipher.Identity.Email,
+			&cipher.Identity.Phone,
+			&cipher.Identity.Ssn,
+			&cipher.Identity.Username,
+			&cipher.Identity.PassportNumber,
+			&cipher.Identity.LicenseNumber)
+		if err != nil {
+			return ciphers, err
+		}
+
 		makeNewCipher(&cipher)
 
 		ciphers[i] = cipher
 	}
 
 	return ciphers, nil
+}
+
+func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
+	var cipher ds.Cipher
+	var revDate int64
+	var favorite int
+
+	cipher.Id = cipherId
+
+	db.QueryRow("SELECT revisionDate, type, folderId, favorite, name, notes FROM ciphere WHERE id=$1", cipherId).Scan(
+		&revDate, &cipher.Type, &cipher.FolderId, &favorite, &cipher.Name, &cipher.Notes)
+
+	cipher.RevisionDate = time.Unix(revDate, 0)
+	if favorite == 1 {
+		cipher.Favorite = true
+	}
+
+	loginRow := db.QueryRow("SELECT username, password, totp FROM logins WHERE cipherId=$1", cipher.Id)
+
+	err := loginRow.Scan(&cipher.Login.Username, &cipher.Login.Password, &cipher.Login.Totp)
+	if err != nil {
+		return cipher, err
+	}
+
+	uriRows, err := db.Query("SELECT match, uri FROM uris WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+	var uris []ds.Uri
+	for uriRows.Next() {
+		var uri ds.Uri
+		err := uriRows.Scan(&uri.Match, &uri.Uri)
+		if err != nil {
+			return cipher, err
+		}
+		uris = append(uris, uri)
+	}
+	cipher.Login.Uris = uris
+
+	fieldRows, err := db.Query("SELECT type, name, value FROM fields WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+
+	var fields []ds.Field
+	for fieldRows.Next() {
+		var field ds.Field
+
+		err = fieldRows.Scan(&field.Type, &field.Name, &field.Value)
+		if err != nil {
+			return cipher, err
+		}
+
+		fields = append(fields, field)
+	}
+
+	cipher.Fields = fields
+
+	attachmentRows, err := db.Query("SELECT id, filename, key, size, url FROM attachments WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+	var attachments []ds.Attachment
+	for attachmentRows.Next() {
+		var attachment ds.Attachment
+		err = attachmentRows.Scan(&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
+		if err != nil {
+			return cipher, err
+		}
+		attachment.Object = "attachment"
+		size, err := strconv.Atoi(attachment.Size)
+		if err != nil {
+			return cipher, err
+		}
+		attachment.SizeName = strconv.FormatInt(int64(size>>10), 10) + " KB"
+		attachments = append(attachments, attachment)
+	}
+	cipher.Attachments = attachments
+
+	cardRow, err := db.Query("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+	err = cardRow.Scan(&cipher.Card.CardHolderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
+	if err != nil {
+		return cipher, err
+	}
+
+	identityRow, err := db.Query("SELECT * FROM identities WHERE cipherId=$1", cipher.Id)
+	if err != nil {
+		return cipher, err
+	}
+	var foo, bar string
+	err = identityRow.Scan(
+		&foo,
+		&bar,
+		&cipher.Identity.Title,
+		&cipher.Identity.FirstName,
+		&cipher.Identity.MiddleName,
+		&cipher.Identity.LastName,
+		&cipher.Identity.Address1,
+		&cipher.Identity.Address2,
+		&cipher.Identity.Address3,
+		&cipher.Identity.City,
+		&cipher.Identity.State,
+		&cipher.Identity.PostalCode,
+		&cipher.Identity.Country,
+		&cipher.Identity.Company,
+		&cipher.Identity.Email,
+		&cipher.Identity.Phone,
+		&cipher.Identity.Ssn,
+		&cipher.Identity.Username,
+		&cipher.Identity.PassportNumber,
+		&cipher.Identity.LicenseNumber)
+	if err != nil {
+		return cipher, err
+	}
+
+	makeNewCipher(&cipher)
+
+	return cipher, nil
+}
+
+func makeNewCipher(cipher *ds.Cipher) {
+	cipher.Object = "cipher"
+	cipher.Edit = true
+
+	if cipher.Login.Uris != nil {
+		cipher.Login.Uri, cipher.Data.Uri = cipher.Login.Uris[0].Uri, cipher.Login.Uris[0].Uri
+	}
+
+	// 只有object为login时
+	if cipher.Login.Username != nil {
+		cipher.Data = ds.CipherData{
+			Username: cipher.Login.Username,
+			Password: cipher.Login.Password,
+			Totp:     cipher.Login.Totp,
+			Name:     cipher.Name,
+			Notes:    cipher.Notes,
+			Fields:   cipher.Fields,
+			Uris:     cipher.Login.Uris,
+		}
+	}
+
 }
 
 func (db *DB) GetFolders(accId string) ([]ds.Folder, error) {
@@ -737,23 +938,15 @@ func (db *DB) SetDir(d string) {
 	db.dir = d
 }
 
-func PathExist(_path string) bool {
-	_, err := os.Stat(_path)
-	if err != nil && os.IsNotExist(err) {
-		return false
-	}
-	return true
-}
-
 func (db *DB) Init() error {
-	if PathExist(dbFileName) {
+	if utils.PathExist(dbFileName) {
 		err := os.Remove(dbFileName)
 		if err != nil {
 			return err
 		}
 	}
 
-	for _, sql := range []string{accountTable, folderTable, cipherTable, loginTable, uriTable, fieldTable, attachmentTable} {
+	for _, sql := range []string{identityTable, cardTable, accountTable, folderTable, cipherTable, loginTable, uriTable, fieldTable, attachmentTable} {
 		if _, err := db.db.Exec(sql); err != nil {
 			return errors.New(fmt.Sprintf("Sql error with %s\n%s", sql, err.Error()))
 		}

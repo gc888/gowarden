@@ -2,9 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -56,10 +58,6 @@ func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Reque
 	w.Write(b)
 }
 
-// FIXME can not decode when have attachment, when cipher is save, didn't decode attachment in ds.cipher
-// 在返回的cipher中加入与其相关的attachments
-// json rawmessage
-// attachment and attachment2 how to handle it ...
 func (apiHandler *APIHandler) HandleUpdateCiphers(w http.ResponseWriter, r *http.Request) {
 	email := getEmailRctx(r)
 	apiHandler.logger.Infof("%v is trying to update cipher.", email)
@@ -92,6 +90,7 @@ func (apiHandler *APIHandler) HandleUpdateCiphers(w http.ResponseWriter, r *http
 	cipher.Type, cipher.FolderId, cipher.OrganizationId = cipherForUpdate.Type, cipherForUpdate.FolderId, cipherForUpdate.OrganizationId
 	cipher.Name, cipher.Notes, cipher.Favorite = cipherForUpdate.Name, cipherForUpdate.Notes, cipher.Favorite
 	cipher.Login, cipher.Fields = cipherForUpdate.Login, cipherForUpdate.Fields
+	cipher.Card, cipher.Identity, cipher.SecureNote = cipherForUpdate.Card, cipherForUpdate.Identity, cipherForUpdate.SecureNote
 
 	cipher.Id = cipherId
 	cipher, err = apiHandler.db.UpdateCipher(cipher, acc.Id)
@@ -154,6 +153,8 @@ func (apiHandler APIHandler) HandleAddAttachment(w http.ResponseWriter, r *http.
 	cipherId := mux.Vars(r)["cipherId"]
 
 	attachment.Id = uuid.Must(uuid.NewRandom()).String()
+
+	// TODO
 	attachment.Url = "attachments/" + cipherId + "/" + attachment.Id
 
 	apiHandler.logger.Infof("%v is trying to add attachment.\n", email)
@@ -179,6 +180,8 @@ func (apiHandler APIHandler) HandleAddAttachment(w http.ResponseWriter, r *http.
 			os.Mkdir("attachments/"+cipherId, os.ModePerm)
 		}
 
+		// TODO
+		//tmpfile, err := os.Create(attachment.Url)
 		tmpfile, err := os.Create(attachment.Url)
 		if err != nil {
 			apiHandler.logger.Error(err)
@@ -234,30 +237,27 @@ func (apiHandler APIHandler) HandleDeleteAttachment(w http.ResponseWriter, r *ht
 	return
 }
 
-// TODO download attachments
-// FIXME didn't get client's request
 func (apiHandler APIHandler) HandleGetAttachment(w http.ResponseWriter, r *http.Request) {
-	apiHandler.logger.Info("rua")
-	// email := getEmailRctx(r)
-	// cipherId := mux.Vars(r)["cipherId"]
-	// attachmentId := mux.Vars(r)["attachmentId"]
+	cipherId := mux.Vars(r)["cipherId"]
+	attachmentId := mux.Vars(r)["attachmentId"]
 
-	// apiHandler.logger.Infof("%v is trying to download attachment: %v.\n", email, attachmentId)
+	apiHandler.logger.Infof("trying to download attachment: %v.\n", attachmentId)
 
-	// attachment, err := apiHandler.db.GetAttachment(cipherId, attachmentId)
-	// if err != nil {
-	// 	apiHandler.logger.Error(err)
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-	// 	return
-	// }
+	attachment, err := apiHandler.db.GetAttachment(cipherId, attachmentId)
+	if err != nil {
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
 
-	// // TODO
-	// file, _ := os.Open(attachment.Url)
-	// defer file.Close()
-	// b, _ := ioutil.ReadAll(file)
-
-	// w.Write(b)
-
-	// return
+	// TODO doesn't work
+	b, err := ioutil.ReadFile(attachment.Url)
+	if err != nil {
+		apiHandler.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+	fmt.Fprint(w, b)
 }

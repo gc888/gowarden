@@ -4,6 +4,16 @@ import (
 	"time"
 )
 
+type CSV struct {
+	Folder     Folder
+	Favorite   bool
+	CipherType string
+	Name       string
+	Notes      string
+	Filds      []Field
+	Login      Login
+}
+
 // struct used in sync
 type SyncData struct {
 	Profile Profile
@@ -81,9 +91,39 @@ type Cipher struct {
 	RevisionDate        time.Time
 	Object              string
 	CollectionIds       []string
-	Card                string
-	Identity            string
+	Card                Card
+	Identity            Identity
 	SecureNote          SecureNote
+}
+
+type Identity struct {
+	Title          string
+	FirstName      string
+	MiddleName     string
+	LastName       string
+	Address1       string
+	Address2       string
+	Address3       string
+	City           string
+	State          string
+	PostalCode     string
+	Country        string
+	Company        string
+	Email          string
+	Phone          string
+	Ssn            string
+	Username       string
+	PassportNumber string
+	LicenseNumber  string
+}
+
+type Card struct {
+	CardHolderName string
+	Brand          string
+	Number         string
+	ExpMonth       string
+	ExpYear        string
+	Code           string
 }
 
 // TODO maybe delete
@@ -96,6 +136,9 @@ type CipherForUpdate struct {
 	Favorite       bool
 	Login          Login
 	Fields         []Field
+	Card           Card
+	Identity       Identity
+	SecureNote     SecureNote
 
 	Attachments  map[string]string
 	Attachments2 map[string]Attachment

@@ -1,0 +1,2 @@
+2020-05-11T02:31:38.654+0800	INFO	api/login.go:136	nobody@example.com is trying to login.
+2020-05-11T02:31:39.014+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.
