@@ -2,12 +2,12 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -154,10 +154,11 @@ func (apiHandler APIHandler) HandleAddAttachment(w http.ResponseWriter, r *http.
 
 	attachment.Id = uuid.Must(uuid.NewRandom()).String()
 
-	// TODO
-	attachment.Url = "attachments/" + cipherId + "/" + attachment.Id
+	// TODO replace server and port to gowaden's flag
+	// FIXME usl must be http://server:port/attachments/{cipherid}/{attachmentid}
+	attachment.Url = strings.ToLower(strings.Split(r.Proto, "/")[0]) + "://" + r.Host + "/attachments/" + cipherId + "/" + attachment.Id
 
-	apiHandler.logger.Infof("%v is trying to add attachment.\n", email)
+	apiHandler.logger.Infof("%v is trying to add attachment.", email)
 
 	parseErr := r.ParseMultipartForm(0)
 	if parseErr != nil {
@@ -180,9 +181,7 @@ func (apiHandler APIHandler) HandleAddAttachment(w http.ResponseWriter, r *http.
 			os.Mkdir("attachments/"+cipherId, os.ModePerm)
 		}
 
-		// TODO
-		//tmpfile, err := os.Create(attachment.Url)
-		tmpfile, err := os.Create(attachment.Url)
+		tmpfile, err := os.Create(regexp.MustCompile(`attachments.*`).FindStringSubmatch(attachment.Url)[0])
 		if err != nil {
 			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -219,7 +218,7 @@ func (apiHandler APIHandler) HandleDeleteAttachment(w http.ResponseWriter, r *ht
 	cipherId := mux.Vars(r)["cipherId"]
 	attachmentId := mux.Vars(r)["attachmentId"]
 
-	apiHandler.logger.Infof("%v is trying to delete attachment: %v.\n", email, attachmentId)
+	apiHandler.logger.Infof("%v is trying to delete attachment.\n", email)
 
 	url, err := apiHandler.db.DeleteAttachment(cipherId, attachmentId)
 	if err != nil {
@@ -229,7 +228,7 @@ func (apiHandler APIHandler) HandleDeleteAttachment(w http.ResponseWriter, r *ht
 		return
 	}
 
-	err = os.Remove(url)
+	err = os.Remove(regexp.MustCompile(`attachments.*`).FindStringSubmatch(url)[0])
 	if err != nil {
 		apiHandler.logger.Error(err)
 	}
@@ -241,7 +240,7 @@ func (apiHandler APIHandler) HandleGetAttachment(w http.ResponseWriter, r *http.
 	cipherId := mux.Vars(r)["cipherId"]
 	attachmentId := mux.Vars(r)["attachmentId"]
 
-	apiHandler.logger.Infof("trying to download attachment: %v.\n", attachmentId)
+	apiHandler.logger.Infof("trying to download attachment: %v.", attachmentId)
 
 	attachment, err := apiHandler.db.GetAttachment(cipherId, attachmentId)
 	if err != nil {
@@ -252,12 +251,5 @@ func (apiHandler APIHandler) HandleGetAttachment(w http.ResponseWriter, r *http.
 	}
 
 	// TODO doesn't work
-	b, err := ioutil.ReadFile(attachment.Url)
-	if err != nil {
-		apiHandler.logger.Error(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		return
-	}
-	fmt.Fprint(w, b)
+	http.ServeFile(w, r, regexp.MustCompile(`attachment.*`).FindStringSubmatch(attachment.Url)[0])
 }

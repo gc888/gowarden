@@ -464,7 +464,6 @@ func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		return cipher, err
 	}
 
-	// FIXME 更新后数据没了
 	cardStmt, err := db.db.Prepare("UPDATE cards SET cardholdername=$1, brand=$2, number=$3, expmonth=$4, expyear=$5, code=$6 WHERE cipherId=$7")
 	if err != nil {
 		return cipher, err
@@ -474,7 +473,6 @@ func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		return cipher, err
 	}
 
-	// FIXME
 	_, err = db.db.Exec("UPDATE identities SET title=$1, firstname=$2, middlename=$3, lastname=$4, address1=$5, address2=$6, address3=$7, city=$8, state=$9, postalcode=$10, country=$11, company=$12, email=$13, phone=$14, ssn=$15, username=$16, passportnumber=$17, licensenumber=$18 WHERE cipherId=$19",
 		cipher.Identity.Title,
 		cipher.Identity.FirstName,
@@ -642,6 +640,7 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 	var revDate int64
 	var favorite int
 
+	// TODO error wrapper , insert stack to message
 	cipher.Id = cipherId
 
 	db.QueryRow("SELECT revisionDate, type, folderId, favorite, name, notes FROM ciphere WHERE id=$1", cipherId).Scan(
@@ -714,19 +713,13 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 	}
 	cipher.Attachments = attachments
 
-	cardRow, err := db.Query("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id)
-	if err != nil {
-		return cipher, err
-	}
+	cardRow := db.QueryRow("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id)
 	err = cardRow.Scan(&cipher.Card.CardholderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
 	if err != nil {
 		return cipher, err
 	}
 
-	identityRow, err := db.Query("SELECT * FROM identities WHERE cipherId=$1", cipher.Id)
-	if err != nil {
-		return cipher, err
-	}
+	identityRow := db.QueryRow("SELECT * FROM identities WHERE cipherId=$1", cipher.Id)
 	var foo, bar string
 	err = identityRow.Scan(
 		&foo,

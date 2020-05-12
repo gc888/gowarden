@@ -14,3 +14,7 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 gowarden-db
+attachments
+gowarden-db
+gowarden.log
+icons
