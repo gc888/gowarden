@@ -3,18 +3,18 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
 
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
+
 	"github.com/404cn/gowarden/ds"
 )
 
-// Handle add ciphers.
 func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Request) {
 	email := getEmailRctx(r)
 	apiHandler.logger.Infof("%v is trying add cipher.\n", email)
@@ -88,7 +88,7 @@ func (apiHandler *APIHandler) HandleUpdateCiphers(w http.ResponseWriter, r *http
 
 	// TODO
 	cipher.Type, cipher.FolderId, cipher.OrganizationId = cipherForUpdate.Type, cipherForUpdate.FolderId, cipherForUpdate.OrganizationId
-	cipher.Name, cipher.Notes, cipher.Favorite = cipherForUpdate.Name, cipherForUpdate.Notes, cipher.Favorite
+	cipher.Name, cipher.Notes, cipher.Favorite = cipherForUpdate.Name, cipherForUpdate.Notes, cipherForUpdate.Favorite
 	cipher.Login, cipher.Fields = cipherForUpdate.Login, cipherForUpdate.Fields
 	cipher.Card, cipher.Identity, cipher.SecureNote = cipherForUpdate.Card, cipherForUpdate.Identity, cipherForUpdate.SecureNote
 

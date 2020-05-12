@@ -1,2 +1,6 @@
-2020-05-11T02:31:38.654+0800	INFO	api/login.go:136	nobody@example.com is trying to login.
-2020-05-11T02:31:39.014+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.
+2020-05-12T21:15:54.080+0800	INFO	api/ciphers.go:120	nobody@example.com is trying to delete cipher.
+2020-05-12T21:15:54.106+0800	INFO	api/ciphers.go:146	Cipher f0bd898c-b02f-4583-baf9-4907cee60943 deleted.
+2020-05-12T21:16:05.806+0800	INFO	api/ciphers.go:20	nobody@example.com is trying add cipher.
+
+2020-05-12T21:16:25.687+0800	INFO	api/ciphers.go:63	nobody@example.com is trying to update cipher.
+2020-05-12T21:16:25.694+0800	INFO	api/ciphers.go:114	cipher 9c40826d-824e-44a0-adb0-2149c1b835ab updated.

@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/404cn/gowarden/utils"
 	"os"
 	"path"
 	"strconv"
+
+	"github.com/404cn/gowarden/utils"
 
 	"regexp"
 
@@ -268,7 +269,6 @@ func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		return cipher, nil
 	}
 
-	// TODO totp's handle
 	_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Login.Username, cipher.Login.Password, 0)
 	if err != nil {
 		return cipher, nil
@@ -292,7 +292,7 @@ func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 	if err != nil {
 		return cipher, err
 	}
-	_, err = cardStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Card.CardHolderName, cipher.Card.Brand, cipher.Card.Number, cipher.Card.ExpMonth, cipher.Card.ExpYear, cipher.Card.Code)
+	_, err = cardStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Card.CardholderName, cipher.Card.Brand, cipher.Card.Number, cipher.Card.ExpMonth, cipher.Card.ExpYear, cipher.Card.Code)
 	if err != nil {
 		return cipher, err
 	}
@@ -318,14 +318,16 @@ func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		cipher.Identity.Company,
 		cipher.Identity.Email,
 		cipher.Identity.Phone,
-		cipher.Identity.Ssn,
+		cipher.Identity.SSN,
 		cipher.Identity.Username,
 		cipher.Identity.PassportNumber,
-		cipher.Identity.LicenseNumber,
-	)
+		cipher.Identity.LicenseNumber)
 	if err != nil {
 		return cipher, err
 	}
+
+	cipher.Data.CardholderName = cipher.Card.CardholderName
+	cipher.Data.SSN = cipher.Identity.SSN
 
 	makeNewCipher(&cipher)
 	return cipher, nil
@@ -467,7 +469,7 @@ func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 	if err != nil {
 		return cipher, err
 	}
-	_, err = cardStmt.Exec(cipher.Card.CardHolderName, cipher.Card.Brand, cipher.Card.Number, cipher.Card.ExpMonth, cipher.Card.ExpYear, cipher.Card.Code, cipher.Id)
+	_, err = cardStmt.Exec(cipher.Card.CardholderName, cipher.Card.Brand, cipher.Card.Number, cipher.Card.ExpMonth, cipher.Card.ExpYear, cipher.Card.Code, cipher.Id)
 	if err != nil {
 		return cipher, err
 	}
@@ -488,7 +490,7 @@ func (db *DB) UpdateCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		cipher.Identity.Company,
 		cipher.Identity.Email,
 		cipher.Identity.Phone,
-		cipher.Identity.Ssn,
+		cipher.Identity.SSN,
 		cipher.Identity.Username,
 		cipher.Identity.PassportNumber,
 		cipher.Identity.LicenseNumber,
@@ -595,7 +597,7 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 		cipher.Attachments = attachments
 
 		cardRow := db.db.QueryRow("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id)
-		err = cardRow.Scan(&cipher.Card.CardHolderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
+		err = cardRow.Scan(&cipher.Card.CardholderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
 		if err != nil {
 			return ciphers, err
 		}
@@ -619,7 +621,7 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 			&cipher.Identity.Company,
 			&cipher.Identity.Email,
 			&cipher.Identity.Phone,
-			&cipher.Identity.Ssn,
+			&cipher.Identity.SSN,
 			&cipher.Identity.Username,
 			&cipher.Identity.PassportNumber,
 			&cipher.Identity.LicenseNumber)
@@ -716,7 +718,7 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 	if err != nil {
 		return cipher, err
 	}
-	err = cardRow.Scan(&cipher.Card.CardHolderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
+	err = cardRow.Scan(&cipher.Card.CardholderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
 	if err != nil {
 		return cipher, err
 	}
@@ -743,7 +745,7 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 		&cipher.Identity.Company,
 		&cipher.Identity.Email,
 		&cipher.Identity.Phone,
-		&cipher.Identity.Ssn,
+		&cipher.Identity.SSN,
 		&cipher.Identity.Username,
 		&cipher.Identity.PassportNumber,
 		&cipher.Identity.LicenseNumber)

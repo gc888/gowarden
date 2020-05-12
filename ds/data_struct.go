@@ -97,28 +97,30 @@ type Cipher struct {
 }
 
 type Identity struct {
-	Title          string
-	FirstName      string
-	MiddleName     string
-	LastName       string
-	Address1       string
-	Address2       string
-	Address3       string
-	City           string
-	State          string
-	PostalCode     string
-	Country        string
-	Company        string
-	Email          string
-	Phone          string
-	Ssn            string
+	Title      string
+	FirstName  string
+	MiddleName string
+	LastName   string
+	Address1   string
+	Address2   string
+	Address3   string
+	City       string
+	State      string
+	PostalCode string
+	Country    string
+	Company    string
+	Email      string
+	Phone      string
+	// must be all upper case or client will not show ssn
+	SSN            string
 	Username       string
 	PassportNumber string
 	LicenseNumber  string
 }
 
 type Card struct {
-	CardHolderName string
+	// must be lower case "h" or client will not show cardholdername
+	CardholderName string
 	Brand          string
 	Number         string
 	ExpMonth       string
@@ -163,6 +165,31 @@ type CipherData struct {
 	Notes    string
 	Fields   []Field
 	Uris     []Uri
+
+	Title          string
+	FirstName      string
+	MiddleName     string
+	LastName       string
+	Address1       string
+	Address2       string
+	Address3       string
+	City           string
+	State          string
+	PostalCode     string
+	Country        string
+	Company        string
+	Email          string
+	Phone          string
+	SSN            string
+	PassportNumber string
+	LicenseNumber  string
+
+	CardholderName string
+	Brand          string
+	Number         string
+	ExpMonth       string
+	ExpYear        string
+	Code           string
 }
 
 type Field struct {
