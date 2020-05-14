@@ -45,10 +45,10 @@ func cipherString(tp, iv, ct, mac string) string {
 // pt: A secret note
 // key: enckey top 32 byte of master key
 // mackey: mackey count from iv + cipher text
-func Encrypt(pt string, key, macKey []byte) (string, error) {
+func Encrypt(pt string, key, macKey []byte) string {
 	iv, err := getIV()
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
 	ct := aes256(pt, key, iv)
@@ -57,7 +57,8 @@ func Encrypt(pt string, key, macKey []byte) (string, error) {
 	mac := h.Sum(nil)
 
 	cs := cipherString("2", base64.StdEncoding.EncodeToString(iv), base64.StdEncoding.EncodeToString([]byte(ct)), base64.StdEncoding.EncodeToString(mac))
-	return cs, nil
+
+	return cs
 }
 
 func aes256(plaintext string, key, iv []byte) string {

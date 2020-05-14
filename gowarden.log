@@ -1,4 +1,5 @@
-2020-05-13T00:41:10.426+0800	INFO	api/login.go:136	nobody@example.com is trying to login.
-2020-05-13T00:41:10.754+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.
-2020-05-13T00:41:17.373+0800	INFO	api/ciphers.go:243	trying to download attachment: 0bcbec2c-f3f8-4a01-b4d4-d509a4ba6f55.
-2020-05-13T00:41:41.161+0800	INFO	api/ciphers.go:243	trying to download attachment: 0bcbec2c-f3f8-4a01-b4d4-d509a4ba6f55.
+2020-05-15T00:51:48.581+0800	INFO	api/login.go:134	nobody@example.com is trying to login.
+2020-05-15T00:51:48.874+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.
+2020-05-15T00:51:48.878+0800	ERROR	api/sync.go:23	sql: no rows in result set
+2020-05-15T00:57:52.362+0800	INFO	api/login.go:134	nobody@example.com is trying to login.
+2020-05-15T00:57:52.718+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.

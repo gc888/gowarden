@@ -1,6 +1,7 @@
 package ds
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -10,8 +11,12 @@ type CSV struct {
 	CipherType string
 	Name       string
 	Notes      string
-	Filds      []Field
+	Fields     []Field
 	Login      Login
+}
+
+func (csv CSV) ToString() {
+	fmt.Printf("Folder: %v\nFavorite: %v\nCipherType: %v\nName: %v\nNotes: %v\nFields: %v\nLogin: %v\n\n", csv.Folder, csv.Favorite, csv.CipherType, csv.Name, csv.Notes, csv.Fields, csv.Login)
 }
 
 // struct used in sync
@@ -158,7 +163,7 @@ type Attachment struct {
 
 type CipherData struct {
 	Uri      string
-	Username *string
+	Username string
 	Password string
 	Totp     string
 	Name     string
@@ -208,7 +213,7 @@ type Login struct {
 	Totp     string
 	Uri      string
 	Uris     []Uri
-	Username *string
+	Username string
 }
 
 type SecureNote struct {

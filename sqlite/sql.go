@@ -121,8 +121,6 @@ const (
                     )`
 )
 
-// FIXME ssn, cardholdername didn't save
-
 type DB struct {
 	db  *sql.DB
 	dir string
@@ -135,9 +133,124 @@ func New() *DB {
 var StdDB = New()
 
 // TODO
-func (db *DB) SaveCSV(csvs []ds.CSV) error {
+func (db *DB) SaveCSV(csvs []ds.CSV, email string) error {
+	account, err := db.GetAccount(email)
+	if err != nil {
+		return err
+	}
+
+	accID := account.Id
+	encKey := []byte(account.MasterPasswordHash[:32])
+	macKey := []byte(account.MasterPasswordHash[32:])
+	now := time.Now().Unix()
+
+	folderStmt, err := db.db.Prepare("INSERT INTO folders VALUES(?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+
+	cipherStmt, err := db.db.Prepare("INSERT INTO ciphers VALUES(?,?,?,?,?,?,?,?)")
+	if err != nil {
+		return err
+	}
+
+	loginStmt, err := db.db.Prepare("INSERT INTO logins VALUES(?,?,?,?,?)")
+	if err != nil {
+		return err
+	}
+
+	uriStmt, err := db.db.Prepare("INSERT INTO uris VALUES(?,?,?,?)")
+	if err != nil {
+		return err
+	}
+
+	fieldStmt, err := db.db.Prepare("INSERT INTO fields VALUES(?,?,?,?,?)")
+	if err != nil {
+		return err
+	}
+
+	for index, csv := range csvs {
+		cipherType, err := getCipherType(csv.CipherType)
+		if err != nil {
+			return err
+		}
+
+		var favorite int
+		if csv.Favorite {
+			favorite = 1
+		} else {
+			favorite = 0
+		}
+
+		cipherID := uuid.Must(uuid.NewRandom())
+		folderID := uuid.Must(uuid.NewRandom())
+
+		csv.Folder.Name = utils.Encrypt(csv.Folder.Name, encKey, macKey)
+		csv.Name = utils.Encrypt(csv.Name, encKey, macKey)
+		csv.Notes = utils.Encrypt(csv.Notes, encKey, macKey)
+
+		for i, field := range csv.Fields {
+			csv.Fields[i].Name = utils.Encrypt(field.Name, encKey, macKey)
+			csv.Fields[i].Value = utils.Encrypt(field.Value, encKey, macKey)
+
+			_, err := fieldStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipherID, csv.Fields[i].Type, csv.Fields[i].Name, csv.Fields[i].Value)
+			if err != nil {
+				return err
+			}
+		}
+
+		csv.Login.Username = utils.Encrypt(csv.Login.Username, encKey, macKey)
+		csv.Login.Password = utils.Encrypt(csv.Login.Password, encKey, macKey)
+		csv.Login.Totp = utils.Encrypt(csv.Login.Totp, encKey, macKey)
+		csv.Login.Uri = utils.Encrypt(csv.Login.Uri, encKey, macKey)
+
+		for i, uri := range csv.Login.Uris {
+			csv.Login.Uris[i].Uri = utils.Encrypt(uri.Uri, encKey, macKey)
+
+			_, err := uriStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipherID, csv.Login.Uris[i].Match, csv.Login.Uris[i].Uri)
+			if err != nil {
+				return err
+			}
+		}
+
+		// TODO delete
+		csvs[index] = csv
+
+		if csv.Folder.Name != "" {
+			_, err = folderStmt.Exec(folderID, csv.Folder.Name, now, accID)
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = cipherStmt.Exec(cipherID, accID, now, cipherType, folderID, favorite, csv.Name, csv.Notes)
+		if err != nil {
+			return err
+		}
+
+		_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipherID, csv.Login.Username, csv.Login.Password, csv.Login.Totp)
+		if err != nil {
+			return err
+		}
+
+	}
 
 	return nil
+}
+
+func getCipherType(t string) (int, error) {
+	switch t {
+	case "login":
+		return 1, nil
+	case "note":
+		return 2, nil
+	case "card":
+		return 3, nil
+	case "inentity":
+		return 4, nil
+	default:
+		return 0, errors.New("Can't get cipher type, given type string : " + t)
+	}
 }
 
 func (db *DB) AddAttachment(cipherId string, attachment ds.Attachment) (ds.Cipher, error) {
@@ -599,6 +712,7 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 		cardRow := db.db.QueryRow("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id)
 		err = cardRow.Scan(&cipher.Card.CardholderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
 		if err != nil {
+			// FIXME sql : no rows in result set
 			return ciphers, err
 		}
 
@@ -762,7 +876,7 @@ func makeNewCipher(cipher *ds.Cipher) {
 	}
 
 	// 只有object为login时
-	if cipher.Login.Username != nil {
+	if cipher.Login.Username != "" {
 		cipher.Data = ds.CipherData{
 			Username: cipher.Login.Username,
 			Password: cipher.Login.Password,

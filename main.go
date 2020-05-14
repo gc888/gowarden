@@ -50,14 +50,13 @@ func init() {
 	flag.BoolVar(&gowarden.enableHttps, "enableHttps", false, "Set true to enable https.")
 	flag.StringVar(&gowarden.cert, "certFile", "", "Path to cert.pem file")
 	flag.StringVar(&gowarden.key, "keyFile", "", "Path to key.pem file.")
-	flag.StringVar(&gowarden.csvFile, "csvFile", "", "Path to csv file.")
+	flag.StringVar(&gowarden.csvFile, "csvFile", "bitwarden_export.csv", "Path to csv file.")
 	// TODO change to default value
 	flag.StringVar(&gowarden.username, "username or email", "nobody@example.com", "Only use with --csvFile to decide import data from csv to which account")
 }
 
 func main() {
 	flag.Parse()
-	var err error
 
 	sugar, err := logger.New(gowarden.logLevel)
 	if err != nil {
@@ -89,12 +88,12 @@ func main() {
 
 	// TODO test
 	if gowarden.csvFile != "" {
-		csvs, err := importFromCSV(gowarden.csvFile, gowarden.username)
+		csvs, err := importFromCSV(gowarden.csvFile)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = db.SaveCSV(csvs)
+		err = db.SaveCSV(csvs, gowarden.username)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -153,13 +152,8 @@ func main() {
 	}
 }
 
-func importFromCSV(file, email string) ([]ds.CSV, error) {
+func importFromCSV(file string) ([]ds.CSV, error) {
 	var csvs []ds.CSV
-
-	account, err := sqlite.StdDB.GetAccount(email)
-	if err != nil {
-		return csvs, err
-	}
 
 	fp, err := os.Open(file)
 	if err != nil {
@@ -173,6 +167,7 @@ func importFromCSV(file, email string) ([]ds.CSV, error) {
 	}
 
 	for foo, bar := range records {
+
 		if foo == 0 {
 			continue
 		}
@@ -180,19 +175,24 @@ func importFromCSV(file, email string) ([]ds.CSV, error) {
 
 		csv.Folder.Name = bar[0]
 		csv.Folder.RevisionDate = time.Now()
-		if bar[1] == "0" {
-			csv.Favorite = false
-		} else {
+		if bar[1] == "1" {
 			csv.Favorite = true
+		} else {
+			csv.Favorite = false
 		}
 		csv.CipherType = bar[2]
 		csv.Name = bar[3]
 		csv.Notes = bar[4]
-		fields := strings.Split(bar[5], "\n")
-		for _, v := range fields {
-			foo := strings.Split(v, ":")
-			// FIXME if fields type is bool, then foo[1] maybe cause array out of index
-			csv.Filds = append(csv.Filds, ds.Field{Name: foo[0], Value: foo[1]})
+
+		if bar[5] != "" {
+			fields := strings.Split(bar[5], "\n")
+
+			for _, v := range fields {
+				val := strings.Split(v, ":")
+
+				// FIXME if fields type is bool, then foo[1] maybe cause array out of index
+				csv.Fields = append(csv.Fields, ds.Field{Name: val[0], Value: val[1]})
+			}
 		}
 
 		uris := strings.Split(bar[6], "\n")
@@ -200,7 +200,7 @@ func importFromCSV(file, email string) ([]ds.CSV, error) {
 			csv.Login.Uris = append(csv.Login.Uris, ds.Uri{Uri: v})
 		}
 		csv.Login.Uri = csv.Login.Uris[0].Uri
-		csv.Login.Username = &bar[7]
+		csv.Login.Username = bar[7]
 		csv.Login.Password = bar[8]
 		csv.Login.Totp = bar[9]
 
