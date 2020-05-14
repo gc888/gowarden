@@ -3,14 +3,15 @@ package main
 import (
 	"encoding/csv"
 	"flag"
-	"github.com/404cn/gowarden/ds"
-	"github.com/404cn/gowarden/logger"
-	"github.com/404cn/gowarden/utils"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/404cn/gowarden/ds"
+	"github.com/404cn/gowarden/logger"
+	"github.com/404cn/gowarden/utils"
 
 	"github.com/404cn/gowarden/api"
 	"github.com/404cn/gowarden/sqlite"
@@ -50,7 +51,8 @@ func init() {
 	flag.StringVar(&gowarden.cert, "certFile", "", "Path to cert.pem file")
 	flag.StringVar(&gowarden.key, "keyFile", "", "Path to key.pem file.")
 	flag.StringVar(&gowarden.csvFile, "csvFile", "", "Path to csv file.")
-	flag.StringVar(&gowarden.username, "username", "", "Only use with --csvFile to decide import data from csv to which account")
+	// TODO change to default value
+	flag.StringVar(&gowarden.username, "username or email", "nobody@example.com", "Only use with --csvFile to decide import data from csv to which account")
 }
 
 func main() {
@@ -63,7 +65,7 @@ func main() {
 	}
 	defer sugar.Sync()
 
-	db := sqlite.New()
+	db := sqlite.StdDB
 	db.SetDir(gowarden.dir)
 	err = db.Open()
 	if err != nil {
@@ -87,7 +89,7 @@ func main() {
 
 	// TODO test
 	if gowarden.csvFile != "" {
-		csvs, err := importFromCSV(gowarden.csvFile)
+		csvs, err := importFromCSV(gowarden.csvFile, gowarden.username)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -151,9 +153,14 @@ func main() {
 	}
 }
 
-func importFromCSV(file string) ([]ds.CSV, error) {
-	// TODO encrypted cipher
+func importFromCSV(file, email string) ([]ds.CSV, error) {
 	var csvs []ds.CSV
+
+	account, err := sqlite.StdDB.GetAccount(email)
+	if err != nil {
+		return csvs, err
+	}
+
 	fp, err := os.Open(file)
 	if err != nil {
 		return csvs, err

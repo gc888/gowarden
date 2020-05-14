@@ -66,7 +66,6 @@ func (apiHandler *APIHandler) HandleRegister(w http.ResponseWriter, r *http.Requ
 
 	acc.MasterPasswordHash, err = makeKey(acc.MasterPasswordHash, acc.Email, acc.KdfIterations)
 	if err != nil {
-		apiHandler.logger.Error("Failed to generate key.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(500)))
@@ -75,7 +74,6 @@ func (apiHandler *APIHandler) HandleRegister(w http.ResponseWriter, r *http.Requ
 
 	err = apiHandler.db.AddAccount(acc)
 	if err != nil {
-		apiHandler.logger.Error("Failed to get account.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(500)))

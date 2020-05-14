@@ -132,6 +132,8 @@ func New() *DB {
 	return &DB{}
 }
 
+var StdDB = New()
+
 // TODO
 func (db *DB) SaveCSV(csvs []ds.CSV) error {
 
