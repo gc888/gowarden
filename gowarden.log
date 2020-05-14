@@ -1,5 +1,12 @@
-2020-05-15T00:51:48.581+0800	INFO	api/login.go:134	nobody@example.com is trying to login.
-2020-05-15T00:51:48.874+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.
-2020-05-15T00:51:48.878+0800	ERROR	api/sync.go:23	sql: no rows in result set
-2020-05-15T00:57:52.362+0800	INFO	api/login.go:134	nobody@example.com is trying to login.
-2020-05-15T00:57:52.718+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.
+2020-05-15T01:48:33.638+0800	INFO	api/login.go:134	nobody@example.com is trying to login.
+2020-05-15T01:48:34.408+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.
+2020-05-15T01:48:46.747+0800	INFO	api/ciphers.go:20	nobody@example.com is trying add cipher.
+
+2020-05-15T01:50:27.912+0800	INFO	api/ciphers.go:120	nobody@example.com is trying to delete cipher.
+2020-05-15T01:50:27.914+0800	INFO	api/ciphers.go:146	Cipher 4bff8f4a-4217-4398-b1d6-f190cf9f0671 deleted.
+2020-05-15T01:51:02.261+0800	INFO	api/ciphers.go:20	nobody@example.com is trying add cipher.
+
+2020-05-15T01:52:02.209+0800	INFO	api/ciphers.go:20	nobody@example.com is trying add cipher.
+
+2020-05-15T01:52:38.424+0800	INFO	api/login.go:134	nobody@example.com is trying to login.
+2020-05-15T01:52:38.796+0800	INFO	api/sync.go:12	nobody@example.com is trying to sync.

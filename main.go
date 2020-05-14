@@ -50,10 +50,12 @@ func init() {
 	flag.BoolVar(&gowarden.enableHttps, "enableHttps", false, "Set true to enable https.")
 	flag.StringVar(&gowarden.cert, "certFile", "", "Path to cert.pem file")
 	flag.StringVar(&gowarden.key, "keyFile", "", "Path to key.pem file.")
-	flag.StringVar(&gowarden.csvFile, "csvFile", "bitwarden_export.csv", "Path to csv file.")
+	flag.StringVar(&gowarden.csvFile, "csvFile", "", "Path to csv file.")
 	// TODO change to default value
-	flag.StringVar(&gowarden.username, "username or email", "nobody@example.com", "Only use with --csvFile to decide import data from csv to which account")
+	flag.StringVar(&gowarden.username, "username or email", "", "Only use with --csvFile to decide import data from csv to which account")
 }
+
+// TODO error wrapper
 
 func main() {
 	flag.Parse()
@@ -88,6 +90,7 @@ func main() {
 
 	// TODO test
 	if gowarden.csvFile != "" {
+		sugar.Info("Try to import data from csv file ...")
 		csvs, err := importFromCSV(gowarden.csvFile)
 		if err != nil {
 			log.Fatal(err)
@@ -97,6 +100,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		sugar.Info("DONE")
 	}
 
 	r := mux.NewRouter()

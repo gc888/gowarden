@@ -132,7 +132,6 @@ func New() *DB {
 
 var StdDB = New()
 
-// TODO
 func (db *DB) SaveCSV(csvs []ds.CSV, email string) error {
 	account, err := db.GetAccount(email)
 	if err != nil {
@@ -169,7 +168,7 @@ func (db *DB) SaveCSV(csvs []ds.CSV, email string) error {
 		return err
 	}
 
-	for index, csv := range csvs {
+	for _, csv := range csvs {
 		cipherType, err := getCipherType(csv.CipherType)
 		if err != nil {
 			return err
@@ -207,14 +206,14 @@ func (db *DB) SaveCSV(csvs []ds.CSV, email string) error {
 		for i, uri := range csv.Login.Uris {
 			csv.Login.Uris[i].Uri = utils.Encrypt(uri.Uri, encKey, macKey)
 
-			_, err := uriStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipherID, csv.Login.Uris[i].Match, csv.Login.Uris[i].Uri)
-			if err != nil {
-				return err
+			if csv.Login.Uris[i].Uri != "" {
+				_, err := uriStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipherID, csv.Login.Uris[i].Match, csv.Login.Uris[i].Uri)
+				if err != nil {
+					return err
+				}
 			}
-		}
 
-		// TODO delete
-		csvs[index] = csv
+		}
 
 		if csv.Folder.Name != "" {
 			_, err = folderStmt.Exec(folderID, csv.Folder.Name, now, accID)
@@ -228,9 +227,11 @@ func (db *DB) SaveCSV(csvs []ds.CSV, email string) error {
 			return err
 		}
 
-		_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipherID, csv.Login.Username, csv.Login.Password, csv.Login.Totp)
-		if err != nil {
-			return err
+		if cipherType == 1 {
+			_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipherID, csv.Login.Username, csv.Login.Password, csv.Login.Totp)
+			if err != nil {
+				return err
+			}
 		}
 
 	}
@@ -244,10 +245,6 @@ func getCipherType(t string) (int, error) {
 		return 1, nil
 	case "note":
 		return 2, nil
-	case "card":
-		return 3, nil
-	case "inentity":
-		return 4, nil
 	default:
 		return 0, errors.New("Can't get cipher type, given type string : " + t)
 	}
@@ -364,9 +361,15 @@ func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		return cipher, nil
 	}
 
-	loginStmt, err := db.db.Prepare("INSERT INTO logins VALUES(?, ?, ?, ?, ?)")
-	if err != nil {
-		return cipher, nil
+	if cipher.Type == 1 {
+		loginStmt, err := db.db.Prepare("INSERT INTO logins VALUES(?, ?, ?, ?, ?)")
+		if err != nil {
+			return cipher, nil
+		}
+		_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Login.Username, cipher.Login.Password, 0)
+		if err != nil {
+			return cipher, nil
+		}
 	}
 
 	uriStmt, err := db.db.Prepare("INSERT INTO uris VALUES(?, ?, ?, ?)")
@@ -380,11 +383,6 @@ func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 	}
 
 	_, err = cipherStmt.Exec(cipher.Id, accId, cipher.RevisionDate.Unix(), cipher.Type, cipher.FolderId, favorite, cipher.Name, cipher.Notes)
-	if err != nil {
-		return cipher, nil
-	}
-
-	_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Login.Username, cipher.Login.Password, 0)
 	if err != nil {
 		return cipher, nil
 	}
@@ -403,46 +401,47 @@ func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		}
 	}
 
-	cardStmt, err := db.db.Prepare("INSERT INTO cards VALUES(?, ?, ?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		return cipher, err
-	}
-	_, err = cardStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Card.CardholderName, cipher.Card.Brand, cipher.Card.Number, cipher.Card.ExpMonth, cipher.Card.ExpYear, cipher.Card.Code)
-	if err != nil {
-		return cipher, err
-	}
-
-	identityStmt, err := db.db.Prepare("INSERT INTO identities VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,? ,?,?,?,?,?,?)")
-	if err != nil {
-		return cipher, err
-	}
-	_, err = identityStmt.Exec(
-		uuid.Must(uuid.NewRandom()).String(),
-		cipher.Id,
-		cipher.Identity.Title,
-		cipher.Identity.FirstName,
-		cipher.Identity.MiddleName,
-		cipher.Identity.LastName,
-		cipher.Identity.Address1,
-		cipher.Identity.Address2,
-		cipher.Identity.Address3,
-		cipher.Identity.City,
-		cipher.Identity.State,
-		cipher.Identity.PostalCode,
-		cipher.Identity.Country,
-		cipher.Identity.Company,
-		cipher.Identity.Email,
-		cipher.Identity.Phone,
-		cipher.Identity.SSN,
-		cipher.Identity.Username,
-		cipher.Identity.PassportNumber,
-		cipher.Identity.LicenseNumber)
-	if err != nil {
-		return cipher, err
+	if cipher.Type == 3 {
+		cardStmt, err := db.db.Prepare("INSERT INTO cards VALUES(?, ?, ?, ?, ?, ?, ?, ?)")
+		if err != nil {
+			return cipher, err
+		}
+		_, err = cardStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Card.CardholderName, cipher.Card.Brand, cipher.Card.Number, cipher.Card.ExpMonth, cipher.Card.ExpYear, cipher.Card.Code)
+		if err != nil {
+			return cipher, err
+		}
 	}
 
-	cipher.Data.CardholderName = cipher.Card.CardholderName
-	cipher.Data.SSN = cipher.Identity.SSN
+	if cipher.Type == 4 {
+		identityStmt, err := db.db.Prepare("INSERT INTO identities VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,? ,? ,?,?,?,?,?,?)")
+		if err != nil {
+			return cipher, err
+		}
+		_, err = identityStmt.Exec(
+			uuid.Must(uuid.NewRandom()).String(),
+			cipher.Id,
+			cipher.Identity.Title,
+			cipher.Identity.FirstName,
+			cipher.Identity.MiddleName,
+			cipher.Identity.LastName,
+			cipher.Identity.Address1,
+			cipher.Identity.Address2,
+			cipher.Identity.Address3,
+			cipher.Identity.City,
+			cipher.Identity.State,
+			cipher.Identity.PostalCode,
+			cipher.Identity.Country,
+			cipher.Identity.Company,
+			cipher.Identity.Email,
+			cipher.Identity.Phone,
+			cipher.Identity.SSN,
+			cipher.Identity.Username,
+			cipher.Identity.PassportNumber,
+			cipher.Identity.LicenseNumber)
+		if err != nil {
+			return cipher, err
+		}
+	}
 
 	makeNewCipher(&cipher)
 	return cipher, nil

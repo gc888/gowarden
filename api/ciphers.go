@@ -17,7 +17,7 @@ import (
 
 func (apiHandler *APIHandler) HandleCiphers(w http.ResponseWriter, r *http.Request) {
 	email := getEmailRctx(r)
-	apiHandler.logger.Infof("%v is trying add cipher.\n", email)
+	apiHandler.logger.Infof("%v is trying add cipher.", email)
 
 	acc, err := apiHandler.db.GetAccount(email)
 	if nil != err {
@@ -177,7 +177,7 @@ func (apiHandler APIHandler) HandleAddAttachment(w http.ResponseWriter, r *http.
 
 		_, err := os.Stat("attachments/" + cipherId)
 		if err != nil {
-			apiHandler.logger.Info("Didn't find cipher's folder, try to create.")
+			apiHandler.logger.Info("Didn't find attachments's folder, try to create.")
 			os.Mkdir("attachments/"+cipherId, os.ModePerm)
 		}
 
@@ -218,7 +218,7 @@ func (apiHandler APIHandler) HandleDeleteAttachment(w http.ResponseWriter, r *ht
 	cipherId := mux.Vars(r)["cipherId"]
 	attachmentId := mux.Vars(r)["attachmentId"]
 
-	apiHandler.logger.Infof("%v is trying to delete attachment.\n", email)
+	apiHandler.logger.Infof("%v is trying to delete attachment.", email)
 
 	url, err := apiHandler.db.DeleteAttachment(cipherId, attachmentId)
 	if err != nil {

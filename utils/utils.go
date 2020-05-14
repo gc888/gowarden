@@ -46,6 +46,11 @@ func cipherString(tp, iv, ct, mac string) string {
 // key: enckey top 32 byte of master key
 // mackey: mackey count from iv + cipher text
 func Encrypt(pt string, key, macKey []byte) string {
+	// FIXME clinet can not decrypt
+	if pt == "" {
+		return ""
+	}
+
 	iv, err := getIV()
 	if err != nil {
 		panic(err)
