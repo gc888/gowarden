@@ -55,8 +55,6 @@ func init() {
 	flag.StringVar(&gowarden.username, "username or email", "", "Only use with --csvFile to decide import data from csv to which account")
 }
 
-// TODO error wrapper
-
 func main() {
 	flag.Parse()
 

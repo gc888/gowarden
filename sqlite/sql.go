@@ -301,8 +301,7 @@ func getAttachmentUrl(db *sql.DB, cipherId, attachmentId string) (url string, er
 func (db *DB) GetAttachment(cipherId, attachmentId string) (ds.Attachment, error) {
 	var attachment ds.Attachment
 
-	err := db.db.QueryRow("SELECT id, filename, key, size, url FROM attachments WHERE cipherId=$1", cipherId).Scan(
-		&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
+	err := db.db.QueryRow("SELECT id, filename, key, size, url FROM attachments WHERE cipherId=$1", cipherId).Scan(&attachment.Id, &attachment.FileName, &attachment.Key, &attachment.Size, &attachment.Url)
 	if err != nil {
 		return attachment, err
 	}
@@ -651,7 +650,9 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 
 		err = loginRow.Scan(&cipher.Login.Username, &cipher.Login.Password, &cipher.Login.Totp)
 		if err != nil {
-			return ciphers, err
+			if err != sql.ErrNoRows {
+				return ciphers, err
+			}
 		}
 
 		uriRows, err := db.db.Query("SELECT match, uri FROM uris WHERE cipherId=$1", cipher.Id)
@@ -708,16 +709,15 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 		}
 		cipher.Attachments = attachments
 
-		cardRow := db.db.QueryRow("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id)
-		err = cardRow.Scan(&cipher.Card.CardholderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
+		err = db.db.QueryRow("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id).Scan(&cipher.Card.CardholderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
 		if err != nil {
-			// FIXME sql : no rows in result set
-			return ciphers, err
+			if err != sql.ErrNoRows {
+				return ciphers, err
+			}
 		}
 
-		identityRow := db.db.QueryRow("SELECT * FROM identities WHERE cipherId=$1", cipher.Id)
 		var foo, bar string
-		err = identityRow.Scan(
+		err = db.db.QueryRow("SELECT * FROM identities WHERE cipherId=$1", cipher.Id).Scan(
 			&foo,
 			&bar,
 			&cipher.Identity.Title,
@@ -739,7 +739,9 @@ func (db *DB) GetCiphers(accId string) ([]ds.Cipher, error) {
 			&cipher.Identity.PassportNumber,
 			&cipher.Identity.LicenseNumber)
 		if err != nil {
-			return ciphers, err
+			if err != sql.ErrNoRows {
+				return ciphers, err
+			}
 		}
 
 		makeNewCipher(&cipher)
@@ -758,8 +760,7 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 	// TODO error wrapper , insert stack to message
 	cipher.Id = cipherId
 
-	db.QueryRow("SELECT revisionDate, type, folderId, favorite, name, notes FROM ciphere WHERE id=$1", cipherId).Scan(
-		&revDate, &cipher.Type, &cipher.FolderId, &favorite, &cipher.Name, &cipher.Notes)
+	db.QueryRow("SELECT revisionDate, type, folderId, favorite, name, notes FROM ciphere WHERE id=$1", cipherId).Scan(&revDate, &cipher.Type, &cipher.FolderId, &favorite, &cipher.Name, &cipher.Notes)
 
 	cipher.RevisionDate = time.Unix(revDate, 0)
 	if favorite == 1 {

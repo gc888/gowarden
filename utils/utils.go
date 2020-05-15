@@ -43,8 +43,8 @@ func cipherString(tp, iv, ct, mac string) string {
 }
 
 // pt: A secret note
-// key: enckey top 32 byte of master key
-// mackey: mackey count from iv + cipher text
+// key: enckey first 32 bytes of master key
+// mackey:last 32 bytes from iv + cipher text
 func Encrypt(pt string, key, macKey []byte) string {
 	// FIXME clinet can not decrypt
 	if pt == "" {
