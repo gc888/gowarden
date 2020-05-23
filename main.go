@@ -15,6 +15,7 @@ import (
 
 	"github.com/404cn/gowarden/api"
 	"github.com/404cn/gowarden/sqlite"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
@@ -148,9 +149,9 @@ func main() {
 	r.HandleFunc("/attachments/{cipherId}/{attachmentId}", handler.HandleGetAttachment).Methods(http.MethodGet)
 
 	if gowarden.enableHttps {
-		log.Fatal(http.ListenAndServeTLS("127.0.0.1"+gowarden.port, gowarden.cert, gowarden.key, r))
+		log.Fatal(http.ListenAndServeTLS("127.0.0.1"+gowarden.port, gowarden.cert, gowarden.key, handlers.CORS()(r)))
 	} else {
-		log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, r))
+		log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, handlers.CORS()(r)))
 	}
 }
 
