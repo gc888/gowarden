@@ -77,7 +77,7 @@ func main() {
 	// just for test TODO delete
 	// gowarden.initDB = true
 
-	if gowarden.initDB {
+	if gowarden.initDB || !utils.PathExist("gowarden-db") {
 		sugar.Info("Try to initialize database ...")
 		err := db.Init()
 		if err != nil {
@@ -148,10 +148,15 @@ func main() {
 	r.HandleFunc("/api/ciphers/{cipherId}/attachment/{attachmentId}", handler.AuthMiddleware(handler.HandleDeleteAttachment)).Methods(http.MethodDelete)
 	r.HandleFunc("/attachments/{cipherId}/{attachmentId}", handler.HandleGetAttachment).Methods(http.MethodGet)
 
+	// for cors
+	headersOK := handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Content-Type"})
+	originsOK := handlers.AllowedOrigins([]string{"*"})
+	methodsOK := handlers.AllowedMethods([]string{"GET", "POST", "HEAD", "PUT", "OPTIONS", "DELETE"})
+
 	if gowarden.enableHttps {
-		log.Fatal(http.ListenAndServeTLS("127.0.0.1"+gowarden.port, gowarden.cert, gowarden.key, handlers.CORS()(r)))
+		log.Fatal(http.ListenAndServeTLS("127.0.0.1"+gowarden.port, gowarden.cert, gowarden.key, handlers.CORS(headersOK, originsOK, methodsOK)(r)))
 	} else {
-		log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, handlers.CORS()(r)))
+		log.Fatal(http.ListenAndServe("127.0.0.1:"+gowarden.port, handlers.CORS(headersOK, originsOK, methodsOK)(r)))
 	}
 }
 

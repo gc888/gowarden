@@ -154,8 +154,6 @@ func (apiHandler APIHandler) HandleAddAttachment(w http.ResponseWriter, r *http.
 
 	attachment.Id = uuid.Must(uuid.NewRandom()).String()
 
-	// TODO replace server and port to gowaden's flag
-	// FIXME usl must be http://server:port/attachments/{cipherid}/{attachmentid}
 	attachment.Url = strings.ToLower(strings.Split(r.Proto, "/")[0]) + "://" + r.Host + "/attachments/" + cipherId + "/" + attachment.Id
 
 	apiHandler.logger.Infof("%v is trying to add attachment.", email)

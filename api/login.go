@@ -47,7 +47,6 @@ func (apiHandler *APIHandler) HandleRegister(w http.ResponseWriter, r *http.Requ
 	defer r.Body.Close()
 	err := decoder.Decode(&acc)
 	if err != nil {
-		apiHandler.logger.Error("Failed to decode json.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
@@ -55,7 +54,6 @@ func (apiHandler *APIHandler) HandleRegister(w http.ResponseWriter, r *http.Requ
 	}
 
 	if acc.KdfIterations < 5000 || acc.KdfIterations > 100000 {
-		apiHandler.logger.Error("Bad kdf iterations.")
 		apiHandler.logger.Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
@@ -102,8 +100,7 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		refreshToken := r.PostForm["refresh_token"][0]
 		if len(refreshToken) != 32 {
 			// TODO length 44, base64 encoded
-			apiHandler.logger.Errorf("Bad token length: %v", len(refreshToken))
-			apiHandler.logger.Error(err)
+			apiHandler.logger.Errorf("token超时或出现错误， err: %v", err)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 			return
@@ -147,7 +144,6 @@ func (apiHandler *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request
 		acc.RefreshToken = createRefreshToken()
 		err = apiHandler.db.UpdateAccount(acc)
 		if err != nil {
-			// FIXME jwt token timeout 401
 			apiHandler.logger.Error(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized)))

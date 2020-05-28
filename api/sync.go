@@ -2,8 +2,9 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/404cn/gowarden/ds"
 	"net/http"
+
+	"github.com/404cn/gowarden/ds"
 )
 
 func (apiHandler APIHandler) HandleSync(w http.ResponseWriter, r *http.Request) {

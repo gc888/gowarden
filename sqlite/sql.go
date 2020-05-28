@@ -253,6 +253,7 @@ func getCipherType(t string) (int, error) {
 func (db *DB) AddAttachment(cipherId string, attachment ds.Attachment) (ds.Cipher, error) {
 	cipher, err := getCipher(db.db, cipherId)
 	if err != nil {
+		// FIXME no rows in result sets
 		return cipher, err
 	}
 
@@ -365,7 +366,8 @@ func (db *DB) AddCipher(cipher ds.Cipher, accId string) (ds.Cipher, error) {
 		if err != nil {
 			return cipher, nil
 		}
-		_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Login.Username, cipher.Login.Password, 0)
+		// Add totp in 2020 05 24 2:12
+		_, err = loginStmt.Exec(uuid.Must(uuid.NewRandom()).String(), cipher.Id, cipher.Login.Username, cipher.Login.Password, cipher.Login.Totp)
 		if err != nil {
 			return cipher, nil
 		}
@@ -771,7 +773,9 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 
 	err := loginRow.Scan(&cipher.Login.Username, &cipher.Login.Password, &cipher.Login.Totp)
 	if err != nil {
-		return cipher, err
+		if err != sql.ErrNoRows {
+			return cipher, err
+		}
 	}
 
 	uriRows, err := db.Query("SELECT match, uri FROM uris WHERE cipherId=$1", cipher.Id)
@@ -829,15 +833,15 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 	}
 	cipher.Attachments = attachments
 
-	cardRow := db.QueryRow("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id)
-	err = cardRow.Scan(&cipher.Card.CardholderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
+	err = db.QueryRow("SELECT cardholdername, brand, number, expmonth, expyear, code FROM cards WHERE cipherId=$1", cipher.Id).Scan(&cipher.Card.CardholderName, &cipher.Card.Brand, &cipher.Card.Number, &cipher.Card.ExpMonth, &cipher.Card.ExpYear, &cipher.Card.Code)
 	if err != nil {
-		return cipher, err
+		if err != sql.ErrNoRows {
+			return cipher, err
+		}
 	}
 
-	identityRow := db.QueryRow("SELECT * FROM identities WHERE cipherId=$1", cipher.Id)
 	var foo, bar string
-	err = identityRow.Scan(
+	err = db.QueryRow("SELECT * FROM identities WHERE cipherId=$1", cipher.Id).Scan(
 		&foo,
 		&bar,
 		&cipher.Identity.Title,
@@ -859,7 +863,9 @@ func getCipher(db *sql.DB, cipherId string) (ds.Cipher, error) {
 		&cipher.Identity.PassportNumber,
 		&cipher.Identity.LicenseNumber)
 	if err != nil {
-		return cipher, err
+		if err != sql.ErrNoRows {
+			return cipher, err
+		}
 	}
 
 	makeNewCipher(&cipher)
@@ -1052,6 +1058,11 @@ func (db *DB) SetDir(d string) {
 func (db *DB) Init() error {
 	if utils.PathExist(dbFileName) {
 		err := os.Remove(dbFileName)
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err := os.Create(dbFileName)
 		if err != nil {
 			return err
 		}

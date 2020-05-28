@@ -1,0 +1,12 @@
+2020-05-28T13:44:08.001+0800	ERROR	api/login.go:103	<nil>
+2020-05-28T13:44:12.437+0800	INFO	api/login.go:131	nobody@example.com is trying to login.
+2020-05-28T13:44:12.806+0800	INFO	api/sync.go:13	nobody@example.com is trying to sync.
+2020-05-28T13:45:33.745+0800	INFO	api/ciphers.go:159	nobody@example.com is trying to add attachment.
+2020-05-28T13:45:40.221+0800	INFO	api/ciphers.go:159	nobody@example.com is trying to add attachment.
+2020-05-28T13:45:49.448+0800	INFO	api/ciphers.go:159	nobody@example.com is trying to add attachment.
+2020-05-28T13:45:53.854+0800	INFO	api/ciphers.go:63	nobody@example.com is trying to update cipher.
+2020-05-28T13:45:53.869+0800	INFO	api/ciphers.go:114	cipher 43e1032b-ef5f-4339-bc62-f1a329579668 updated.
+2020-05-28T13:45:53.958+0800	INFO	api/favicon.go:122	Find icon: icons/www.google.com.icon.png
+2020-05-28T13:46:06.267+0800	INFO	api/login.go:131	nobody@example.com is trying to login.
+2020-05-28T13:46:06.569+0800	INFO	api/sync.go:13	nobody@example.com is trying to sync.
+2020-05-28T13:46:10.058+0800	INFO	api/ciphers.go:241	trying to download attachment: abaa9889-3c39-4a3f-b0f3-d07ca216a279.
